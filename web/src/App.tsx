@@ -1608,6 +1608,16 @@ function App() {
 
             {shouldClusterByBrand ? (
               <div className="space-y-4">
+                {!loading && brandGroups.length === 0 && !error && (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <Search className="w-10 h-10 text-[hsl(220_12%_70%)] mb-3" />
+                    <p className="text-sm font-medium text-[hsl(222_47%_8%)]">No products found</p>
+                    <p className="text-xs text-[hsl(220_12%_40%)] mt-1">
+                      {selectedCategory || keyword ? 'Try adjusting your filters' : 'Select a category or search by keyword'}
+                    </p>
+                  </div>
+                )}
+
                 {brandGroups.map((group) => (
                   <section key={group.brand} className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[hsl(220_14%_89%)] bg-white px-3 py-2">
