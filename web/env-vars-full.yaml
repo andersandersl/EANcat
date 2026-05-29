@@ -1,6 +1,0 @@
-﻿WEB_ORIGIN: https://eanrunner-shop.vercel.app,https://shop.eanrunner.com
-SQL_SERVER: eanrunner-sql.database.windows.net
-SQL_DATABASE: eanrunner-db
-SQL_USER: anders_readonly
-SQL_PASSWORD: 1fE41u8E.4V-zQGUOZslX3x+=aH7
-FIREBASE_PROJECT_ID: eanrunner

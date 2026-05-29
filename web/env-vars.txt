@@ -1,1 +1,0 @@
-﻿WEB_ORIGIN=https://eanrunner-shop.vercel.app,https://shop.eanrunner.com

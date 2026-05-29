@@ -1,12 +1,8 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, ExternalLink, Filter, Loader2, Search, X } from 'lucide-react';
+import { ExternalLink, Filter, Loader2, Search, X } from 'lucide-react';
 import { getBrandClusters, getCategories, getProducts } from './api';
 import type { BrandClusterGroup, CategoryEntry, PublicProduct } from './types';
-import logoIcon from './assets/logo-icon-transparent.svg';
-import RequestSupplierModal from './components/RequestSupplierModal';
-import CreateAccountModal from './components/CreateAccountModal';
-import { useAuth } from './auth-context';
 
 const PAGE_SIZE = 48;
 const MULTI_FILTER_PAGE_SIZE = 200;
@@ -143,13 +139,8 @@ function getFilterOptionsCacheKey(
   market: string,
   inStockOnly: boolean,
   hasPictureOnly: boolean,
-  hasSupplierAccess: boolean,
-  allowedSuppliers?: string[],
 ): string {
-  const supplierPart = hasSupplierAccess
-    ? (allowedSuppliers && allowedSuppliers.length > 0 ? [...allowedSuppliers].sort().join(',') : 'approved')
-    : 'public';
-  return `${FILTER_OPTIONS_CACHE_KEY}.${market}.${inStockOnly ? '1' : '0'}.${hasPictureOnly ? '1' : '0'}.${supplierPart}`;
+  return `${FILTER_OPTIONS_CACHE_KEY}.${market}.${inStockOnly ? '1' : '0'}.${hasPictureOnly ? '1' : '0'}`;
 }
 
 function loadFilterOptionsCache(cacheKey: string): { categories: CategoryEntry[]; brandsByCategory: Record<string, string[]> } | null {
@@ -233,21 +224,16 @@ function marginRangeLabel(grade: string, marketPrice: number | null, currency: s
 
 function ProductCard({
   product,
-  hasSupplierAccess,
   compact,
 }: {
   product: PublicProduct;
-  hasSupplierAccess?: boolean;
   compact?: boolean;
 }) {
   const grade = GRADE_STYLES[product.marginGrade] ?? GRADE_STYLES['N/A'];
   const rangeLabel = marginRangeLabel(product.marginGrade, product.marketPrice, product.marketCurrency);
   const level = competitionLevel(product.competitorCount);
   const hot = competitionBadge(level);
-  const hasActualMargin = product.actualMarginPercent != null;
-  const bestSupplier = product.supplierRows?.[0];
   const compactClass = compact ? 'rounded-lg' : 'rounded-xl';
-  const showEstimatedMarginOnly = compact === true;
 
   return (
     <div className={`bg-white ${compactClass} border border-[hsl(220_14%_89%)] shadow-[0_1px_3px_0_rgb(0_0_0/0.06)] overflow-hidden flex flex-col hover:shadow-md transition-shadow`}>
@@ -292,40 +278,9 @@ function ProductCard({
             <span className="truncate">{hot.label}</span>
           </span>
         </div>
-        {showEstimatedMarginOnly ? (
-          <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
-            Est. margin: <span className="text-[hsl(222_47%_20%)] font-semibold">{rangeLabel ?? 'Not available'}</span>
-          </p>
-        ) : hasSupplierAccess ? (
-          <>
-            <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
-              Possible margin:{' '}
-              <span className="text-[hsl(222_47%_20%)] font-semibold">
-                {hasActualMargin
-                  ? `${product.actualMarginPercent?.toFixed(1)}%`
-                  : 'Not available for your approved suppliers'}
-              </span>
-            </p>
-            <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
-              Supplier:{' '}
-              <span className="text-[hsl(222_47%_20%)] font-semibold">
-                {bestSupplier ? bestSupplier.supplier : 'Not available for your approved suppliers'}
-              </span>
-              {bestSupplier ? ' · ' : ''}
-              {bestSupplier ? (
-                <span className="text-[hsl(222_47%_20%)] font-semibold">€{bestSupplier.price.toFixed(2)}</span>
-              ) : null}
-            </p>
-          </>
-        ) : hasActualMargin ? (
-          <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
-            Actual margin: <span className="text-[hsl(222_47%_20%)] font-semibold">{product.actualMarginPercent?.toFixed(1)}%</span>
-          </p>
-        ) : rangeLabel && (
-          <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
-            Est. margin: <span className="text-[hsl(222_47%_20%)] font-semibold">{rangeLabel}</span>
-          </p>
-        )}
+        <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
+          Est. margin: <span className="text-[hsl(222_47%_20%)] font-semibold">{rangeLabel ?? 'Not available'}</span>
+        </p>
         <div className={`flex ${compact ? 'gap-1' : 'gap-1.5'} mt-auto`}>
           {product.cheapestMarketLink ? (
             <a
@@ -350,378 +305,12 @@ function ProductCard({
   );
 }
 
-// ─── Filter Sidebar ───────────────────────────────────────────────────────────
-
-function FilterSidebar({
-  categories,
-  brandsByCategory,
-  selectedCategory,
-  selectedBrand,
-  keyword,
-  inStockOnly,
-  hasPictureOnly,
-  selectedCompetitionLevels,
-  selectedGrades,
-  market,
-  onSelectCategory,
-  onSelectBrand,
-  onKeywordChange,
-  onInStockOnlyChange,
-  onHasPictureOnlyChange,
-  onSelectedCompetitionLevelsChange,
-  onSelectedGradesChange,
-  onMarketChange,
-  productCount,
-  loading,
-}: {
-  categories: CategoryEntry[];
-  brandsByCategory: Record<string, string[]>;
-  selectedCategory: string;
-  selectedBrand: string;
-  keyword: string;
-  inStockOnly: boolean;
-  hasPictureOnly: boolean;
-  selectedCompetitionLevels: Set<number>;
-  selectedGrades: Set<string>;
-  market: string;
-  onSelectCategory: (c: string) => void;
-  onSelectBrand: (b: string) => void;
-  onKeywordChange: (k: string) => void;
-  onInStockOnlyChange: (v: boolean) => void;
-  onHasPictureOnlyChange: (v: boolean) => void;
-  onSelectedCompetitionLevelsChange: (v: Set<number>) => void;
-  onSelectedGradesChange: (g: Set<string>) => void;
-  onMarketChange: (m: string) => void;
-  productCount: number;
-  loading: boolean;
-}) {
-  const [categorySearch, setCategorySearch] = useState('');
-  const [brandSearch, setBrandSearch] = useState('');
-  const [catOpen, setCatOpen] = useState(true);
-  const [brandOpen, setBrandOpen] = useState(true);
-
-  const allBrands = useMemo(() => {
-    const s = new Set<string>();
-    Object.values(brandsByCategory).forEach((arr) => arr.forEach((b) => s.add(b)));
-    return [...s].sort((a, b) => a.localeCompare(b));
-  }, [brandsByCategory]);
-
-  const brands = selectedCategory ? (brandsByCategory[selectedCategory] ?? []) : allBrands;
-
-  const filteredCategories = useMemo(() => {
-    if (!categorySearch.trim()) return categories;
-    const q = categorySearch.trim().toLowerCase();
-    return categories.filter((c) => c.name.toLowerCase().includes(q));
-  }, [categories, categorySearch]);
-
-  const filteredBrands = useMemo(() => {
-    if (!brandSearch.trim()) return brands;
-    const q = brandSearch.trim().toLowerCase();
-    return brands.filter((b) => b.toLowerCase().includes(q));
-  }, [brands, brandSearch]);
-
-  return (
-    <aside className="w-[260px] shrink-0 border-r border-[hsl(220_14%_89%)] bg-white flex flex-col sticky top-0 h-screen overflow-hidden">
-      {/* Header */}
-      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[hsl(220_14%_89%)] shrink-0">
-        <Search className="w-4 h-4 text-[hsl(220_12%_50%)]" />
-        <span className="text-sm font-semibold text-[hsl(222_47%_8%)]">Browse catalog</span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {/* Keyword search */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)]">Search</p>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[hsl(220_12%_50%)]" />
-            <input
-              type="search"
-              value={keyword}
-              onChange={(e) => onKeywordChange(e.target.value)}
-              placeholder="EAN, title, brand…"
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-[hsl(220_14%_89%)] rounded-md bg-[hsl(220_18%_97%)] text-[hsl(222_47%_8%)] placeholder:text-[hsl(220_12%_60%)] focus:outline-none focus:ring-1 focus:ring-[hsl(221_92%_55%)] focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        {/* Market selector */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)]">Market</p>
-          <div className="flex rounded-md border border-[hsl(220_14%_89%)] overflow-hidden text-[10px] font-semibold">
-            {(['dk', 'se', 'fi'] as const).map((m, i) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => onMarketChange(m)}
-                className={`flex-1 py-1.5 transition-colors ${
-                  market === m
-                    ? 'bg-[hsl(221_92%_55%)] text-white'
-                    : 'bg-white text-[hsl(220_12%_40%)] hover:bg-[hsl(220_18%_95%)]'
-                } ${i > 0 ? 'border-l border-[hsl(220_14%_89%)]' : ''}`}
-              >
-                {m.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* In-stock toggle */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)]">Stock</p>
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={inStockOnly}
-              onClick={() => onInStockOnlyChange(!inStockOnly)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                inStockOnly ? 'bg-[hsl(221_92%_55%)]' : 'bg-[hsl(220_14%_83%)]'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                  inStockOnly ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-            <span className="text-xs text-[hsl(222_47%_8%)] whitespace-nowrap">In stock only</span>
-          </label>
-
-          <label className="flex items-center gap-2.5 cursor-pointer select-none">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hasPictureOnly}
-              onClick={() => onHasPictureOnlyChange(!hasPictureOnly)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                hasPictureOnly ? 'bg-[hsl(221_92%_55%)]' : 'bg-[hsl(220_14%_83%)]'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                  hasPictureOnly ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-            <span className="text-xs text-[hsl(222_47%_8%)] whitespace-nowrap">Has picture</span>
-          </label>
-        </div>
-
-        {/* Margin grade filter */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)]">Margin grade</p>
-            {selectedGrades.size > 0 && (
-              <button
-                type="button"
-                onClick={() => onSelectedGradesChange(new Set())}
-                className="text-[9px] font-medium text-[hsl(221_92%_55%)] hover:underline"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {(['A', 'B', 'C', 'D', 'E', 'F', 'N/A'] as const).map((g) => {
-              const styles = GRADE_STYLES[g];
-              const active = selectedGrades.has(g);
-              return (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => {
-                    const next = new Set(selectedGrades);
-                    if (active) next.delete(g); else next.add(g);
-                    onSelectedGradesChange(next);
-                  }}
-                  className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-bold border transition-all ${
-                    active
-                      ? `${styles.bg} ${styles.text} border-transparent ring-2 ring-offset-1 ring-current`
-                      : 'bg-white text-[hsl(220_12%_50%)] border-[hsl(220_14%_85%)] hover:border-[hsl(220_14%_65%)]'
-                  }`}
-                >
-                  {g}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Competition filter */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)]">Competition</p>
-            {selectedCompetitionLevels.size > 0 && (
-              <button
-                type="button"
-                onClick={() => onSelectedCompetitionLevelsChange(new Set())}
-                className="text-[9px] font-medium text-[hsl(221_92%_55%)] hover:underline"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {([0, 1, 2, 3] as const).map((level) => {
-              const active = selectedCompetitionLevels.has(level);
-              return (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => {
-                    const next = new Set(selectedCompetitionLevels);
-                    if (active) next.delete(level); else next.add(level);
-                    onSelectedCompetitionLevelsChange(next);
-                  }}
-                  className={`inline-flex items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[11px] font-semibold border transition-all ${
-                    active
-                      ? 'bg-[hsl(221_80%_95%)] text-[hsl(221_92%_40%)] border-transparent ring-2 ring-offset-1 ring-[hsl(221_92%_55%)]'
-                      : 'bg-white text-[hsl(220_12%_50%)] border-[hsl(220_14%_85%)] hover:border-[hsl(220_14%_65%)]'
-                  }`}
-                >
-                  {COMPETITION_LEVEL_LABELS[level]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Category section */}
-        <div className="space-y-1.5">
-          <button
-            type="button"
-            onClick={() => setCatOpen((v) => !v)}
-            className="flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)] hover:text-[hsl(222_47%_8%)] transition-colors"
-          >
-            <span>Category</span>
-            <div className="flex items-center gap-1.5">
-              {selectedCategory && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onSelectCategory(''); setBrandSearch(''); }}
-                  className="text-[9px] font-medium text-[hsl(221_92%_55%)] hover:underline normal-case tracking-normal"
-                >
-                  Clear
-                </button>
-              )}
-              {catOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            </div>
-          </button>
-
-          {catOpen && (
-            <>
-              <input
-                type="text"
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder="Filter categories…"
-                className="w-full px-2.5 py-1.5 text-xs border border-[hsl(220_14%_89%)] rounded-md bg-[hsl(220_18%_97%)] text-[hsl(222_47%_8%)] placeholder:text-[hsl(220_12%_60%)] focus:outline-none focus:ring-1 focus:ring-[hsl(221_92%_55%)] focus:border-transparent"
-              />
-              <div className="max-h-60 overflow-y-auto -mx-1">
-                {filteredCategories.map((cat) => (
-                  <button
-                    key={cat.name}
-                    type="button"
-                    onClick={() => { onSelectCategory(selectedCategory === cat.name ? '' : cat.name); setBrandSearch(''); onSelectBrand(''); }}
-                    className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors ${
-                      selectedCategory === cat.name
-                        ? 'bg-[hsl(221_80%_95%)] font-semibold text-[hsl(221_92%_40%)]'
-                        : 'text-[hsl(222_47%_8%)] hover:bg-[hsl(220_18%_95%)]'
-                    }`}
-                  >
-                    <span className="truncate">{cat.name}</span>
-                    <span className="ml-2 shrink-0 text-[10px] text-[hsl(220_12%_50%)]">{cat.count.toLocaleString()}</span>
-                  </button>
-                ))}
-                {filteredCategories.length === 0 && (
-                  <p className="px-2 py-2 text-xs text-[hsl(220_12%_50%)]">No categories match.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Brand section */}
-        {brands.length > 0 && (
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={() => setBrandOpen((v) => !v)}
-              className="flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[hsl(220_12%_50%)] hover:text-[hsl(222_47%_8%)] transition-colors"
-            >
-              <span>Brand</span>
-              <div className="flex items-center gap-1.5">
-                {selectedBrand && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onSelectBrand(''); }}
-                    className="text-[9px] font-medium text-[hsl(221_92%_55%)] hover:underline normal-case tracking-normal"
-                  >
-                    Clear
-                  </button>
-                )}
-                {brandOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              </div>
-            </button>
-
-            {brandOpen && (
-              <>
-                {!selectedCategory && (
-                  <p className="text-[10px] text-[hsl(220_12%_50%)]">Showing all brands</p>
-                )}
-                <input
-                  type="text"
-                  value={brandSearch}
-                  onChange={(e) => setBrandSearch(e.target.value)}
-                  placeholder="Filter brands…"
-                  className="w-full px-2.5 py-1.5 text-xs border border-[hsl(220_14%_89%)] rounded-md bg-[hsl(220_18%_97%)] text-[hsl(222_47%_8%)] placeholder:text-[hsl(220_12%_60%)] focus:outline-none focus:ring-1 focus:ring-[hsl(221_92%_55%)] focus:border-transparent"
-                />
-                <div className="max-h-60 overflow-y-auto -mx-1">
-                  {filteredBrands.map((brand) => (
-                    <button
-                      key={brand}
-                      type="button"
-                      onClick={() => onSelectBrand(selectedBrand === brand ? '' : brand)}
-                      className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors ${
-                        selectedBrand === brand
-                          ? 'bg-[hsl(221_80%_95%)] font-semibold text-[hsl(221_92%_40%)]'
-                          : 'text-[hsl(222_47%_8%)] hover:bg-[hsl(220_18%_95%)]'
-                      }`}
-                    >
-                      <span className="truncate">{brand}</span>
-                    </button>
-                  ))}
-                  {filteredBrands.length === 0 && (
-                    <p className="px-2 py-2 text-xs text-[hsl(220_12%_50%)]">No brands match.</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Footer: count */}
-      <div className="px-4 py-3 border-t border-[hsl(220_14%_89%)] shrink-0">
-        <p className="text-[10px] text-[hsl(220_12%_50%)]">
-          {loading ? (
-            <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</span>
-          ) : (
-            <>{productCount.toLocaleString()} products</>
-          )}
-        </p>
-      </div>
-    </aside>
-  );
-}
-
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { brandParam } = useParams<{ brandParam?: string }>();
-  const { user, idToken, approvedAccount, loading: authLoading } = useAuth();
   const isCompactVersion = true;
   const decodedRouteBrand = useMemo(() => {
     if (!brandParam) return '';
@@ -747,8 +336,6 @@ function App() {
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [modalEan, setModalEan] = useState<string | null>(null);
-  const [createAccountOpen, setCreateAccountOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [brandVisibleLimit, setBrandVisibleLimit] = useState(BRAND_PAGE_INITIAL_BATCH_SIZE);
   const [brandClusterGroups, setBrandClusterGroups] = useState<BrandClusterGroup[]>([]);
@@ -764,7 +351,6 @@ function App() {
   const selectedCategoryValues = useMemo(() => splitFilterValues(selectedCategory), [selectedCategory]);
   const selectedBrandValues = useMemo(() => splitFilterValues(selectedBrand), [selectedBrand]);
 
-  const hasSupplierAccess = (approvedAccount?.allowedSuppliers?.length || 0) > 0 || approvedAccount?.isSuperAdmin === true;
   const compactPreviewPageSize = getCompactPageSizeForWidth(viewportWidth);
   const hasMultiFilterSelection = selectedCategoryValues.length > 1 || selectedBrandValues.length > 1;
   const defaultListPageSize = hasMultiFilterSelection ? MULTI_FILTER_PAGE_SIZE : PAGE_SIZE;
@@ -949,25 +535,14 @@ function App() {
 
   // Load categories on mount
   useEffect(() => {
-    const cacheKey = getFilterOptionsCacheKey(
-      market,
-      inStockOnly,
-      hasPictureOnly,
-      hasSupplierAccess,
-      approvedAccount?.allowedSuppliers,
-    );
+    const cacheKey = getFilterOptionsCacheKey(market, inStockOnly, hasPictureOnly);
     const cached = loadFilterOptionsCache(cacheKey);
     if (cached) {
       setCategories(cached.categories);
       setBrandsByCategory(cached.brandsByCategory);
     }
 
-    getCategories(
-      { market, inStock: inStockOnly, hasImage: hasPictureOnly },
-      idToken,
-      approvedAccount?.allowedSuppliers,
-      approvedAccount?.email,
-    )
+    getCategories({ market, inStock: inStockOnly, hasImage: hasPictureOnly })
       .then((data) => {
         setCategories(data.categories);
         setBrandsByCategory(data.brandsByCategory);
@@ -975,26 +550,15 @@ function App() {
       })
       .catch((err) => console.error('Failed to load categories', err));
   }, [
-    idToken,
     market,
     inStockOnly,
     hasPictureOnly,
-    hasSupplierAccess,
-    approvedAccount?.allowedSuppliers,
-    approvedAccount?.email,
   ]);
 
   // Load products whenever filters change
   useEffect(() => {
     let active = true;
     async function load() {
-      if (authLoading) {
-        return;
-      }
-      if (user && hasSupplierAccess && !idToken) {
-        return;
-      }
-
       setLoading(true);
       setError('');
       try {
@@ -1011,9 +575,6 @@ function App() {
                 BRAND_CLUSTER_MIN_PRODUCTS,
                 selectedCategory || undefined,
                 selectedGrades.size > 0 ? selectedGrades : undefined,
-                idToken,
-                approvedAccount?.allowedSuppliers,
-                approvedAccount?.email,
                 inStockOnly || undefined,
                 true,
               ),
@@ -1050,9 +611,6 @@ function App() {
           market,
           effectivePage,
           selectedGrades.size > 0 ? selectedGrades : undefined,
-          idToken,
-          approvedAccount?.allowedSuppliers,
-          approvedAccount?.email,
           inStockOnly || undefined,
           hasPictureOnly || undefined,
         );
@@ -1071,8 +629,6 @@ function App() {
     load();
     return () => { active = false; };
   }, [
-    authLoading,
-    user,
     debouncedKeyword,
     selectedCategory,
     selectedBrand,
@@ -1085,9 +641,6 @@ function App() {
     inStockOnly,
     hasPictureOnly,
     selectedCompetitionLevels,
-    idToken,
-    approvedAccount?.allowedSuppliers,
-    approvedAccount?.email,
     brandClusterOffset,
     disableBrandClusters,
     isCompactVersion,
@@ -1266,11 +819,6 @@ function App() {
     return chips;
   }, [selectedBrandValues, selectedCategoryValues, keyword, market, inStockOnly, hasPictureOnly, selectedGrades, selectedCompetitionLevels]);
 
-  const modalProduct = useMemo(
-    () => (modalEan ? products.find((p) => p.ean === modalEan) || null : null),
-    [products, modalEan],
-  );
-
   if (isCompactVersion) {
     return (
       <>
@@ -1336,21 +884,6 @@ function App() {
                   >
                     About us
                   </Link>
-                  <a
-                    href="https://app.eanrunner.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-9 items-center rounded-lg border border-[hsl(220_16%_84%)] bg-white px-3 text-xs font-semibold text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
-                  >
-                    Login
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setCreateAccountOpen(true)}
-                    className="inline-flex h-9 items-center rounded-lg bg-[hsl(221_92%_55%)] px-3 text-xs font-semibold text-white hover:brightness-95"
-                  >
-                    Create account
-                  </button>
                 </div>
               </div>
 
@@ -1483,9 +1016,7 @@ function App() {
                       <div className="mb-2 rounded-md border border-[hsl(221_60%_88%)] bg-[hsl(221_80%_97%)] px-3 py-2 text-xs text-[hsl(221_40%_35%)] space-y-1">
                         <p className="font-semibold text-[hsl(221_60%_30%)] text-[10px] uppercase tracking-wide">About this catalog</p>
                         <p>
-                          {hasSupplierAccess
-                            ? 'You are signed in with supplier access. Prices, stock and margins use your approved suppliers only.'
-                            : 'Supplier names and exact prices are first shown when you have an account and are logged in. Each product displays a margin grade based on supplier cost vs. the cheapest public market price.'}
+                          Each product displays a margin grade estimated from cost versus the cheapest public market price.
                         </p>
                         <p className="font-medium">Margin indicators work like this:</p>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
@@ -1649,7 +1180,6 @@ function App() {
                         <ProductCard
                           key={product.ean}
                           product={product}
-                          hasSupplierAccess={hasSupplierAccess}
                           compact
                         />
                       ))}
@@ -1714,7 +1244,6 @@ function App() {
                     <ProductCard
                       key={product.ean}
                       product={product}
-                      hasSupplierAccess={hasSupplierAccess}
                       compact
                     />
                   ))}
@@ -1761,237 +1290,13 @@ function App() {
           </div>
         </div>
 
-        {modalProduct && (
-          <RequestSupplierModal
-            ean={modalProduct.ean}
-            title={modalProduct.title}
-            sourcePage="webversion-catalog-v3"
-            onClose={() => setModalEan(null)}
-          />
-        )}
-
-        {createAccountOpen && (
-          <CreateAccountModal onClose={() => setCreateAccountOpen(false)} />
-        )}
       </>
     );
   }
 
-  return (
-    <>
-      {/* Icon nav sidebar — fixed far left */}
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[3.75rem] flex-col border-r border-[hsl(220_14%_90%)] bg-white shadow-sm md:flex">
-        <div className="flex h-14 items-center justify-center border-b border-[hsl(220_14%_90%)]">
-          <img src={logoIcon} alt="EANrunner" className="h-6 w-6 invert" />
-        </div>
-        <div className="flex flex-1 flex-col items-center gap-1 py-3">
-          <div
-            className="flex items-center justify-center w-9 h-9 rounded-lg bg-[hsl(221_80%_95%)] text-[hsl(221_92%_55%)]"
-            title="Catalog"
-          >
-            <Search className="w-4 h-4" />
-          </div>
-        </div>
-      </aside>
-
-      {/* Content layout — offset by icon sidebar (padding-left: 3.75rem set in index.css) */}
-      <div className="flex min-h-screen">
-        {/* Filter sidebar */}
-        <FilterSidebar
-          categories={availableCategoryOptions}
-          brandsByCategory={brandsByCategory}
-          selectedCategory={selectedCategory}
-          selectedBrand={selectedBrand}
-          keyword={keyword}
-          inStockOnly={inStockOnly}
-          hasPictureOnly={hasPictureOnly}
-          selectedCompetitionLevels={selectedCompetitionLevels}
-          selectedGrades={selectedGrades}
-          market={market}
-          onSelectCategory={(c) => { setSelectedCategory(c); if (!c) setSelectedBrand(''); }}
-          onSelectBrand={setSelectedBrand}
-          onKeywordChange={setKeyword}
-          onInStockOnlyChange={setInStockOnly}
-          onHasPictureOnlyChange={setHasPictureOnly}
-          onSelectedCompetitionLevelsChange={setSelectedCompetitionLevels}
-          onSelectedGradesChange={setSelectedGrades}
-          onMarketChange={setMarket}
-          productCount={totalProducts}
-          loading={loading}
-        />
-
-        {/* Main content */}
-        <main className="flex-1 min-w-0 flex flex-col">
-          {/* Top bar */}
-          <div className="sticky top-0 z-40 h-14 flex items-center gap-3 px-5 border-b border-[hsl(220_14%_89%)] bg-white/90 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-1.5 text-sm font-semibold text-[hsl(222_47%_8%)]">
-              <Link to="/" className="hover:text-[hsl(221_92%_45%)] transition-colors">
-                EANrunner
-              </Link>
-              <span className="text-[hsl(220_12%_70%)] font-normal">/</span>
-              <span>Product catalog</span>
-            </div>
-
-            {/* Active filter breadcrumbs */}
-            {(selectedCategory || selectedBrand) && (
-              <div className="flex items-center gap-1.5">
-                {selectedCategory && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-[hsl(221_80%_95%)] text-[hsl(221_92%_40%)] font-medium px-2 py-0.5 rounded-full">
-                    {selectedCategory}
-                    <button type="button" onClick={() => { setSelectedCategory(''); setSelectedBrand(''); }} className="cursor-pointer">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-                {selectedBrand && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-[hsl(221_80%_95%)] text-[hsl(221_92%_40%)] font-medium px-2 py-0.5 rounded-full">
-                    {selectedBrand}
-                    <button type="button" onClick={() => setSelectedBrand('')} className="cursor-pointer">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="ml-auto text-xs text-[hsl(220_12%_50%)]">
-              {loading ? (
-                <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</span>
-              ) : (
-                `${totalProducts.toLocaleString()} products`
-              )}
-            </div>
-
-            <Link
-              to="/signup"
-              className="inline-flex items-center rounded-md bg-[hsl(221_92%_55%)] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
-            >
-              Register for free
-            </Link>
-
-            <Link
-              to="/v2"
-              className="inline-flex items-center rounded-md border border-[hsl(220_14%_80%)] bg-white px-3 py-1.5 text-xs font-semibold text-[hsl(222_47%_12%)] hover:bg-[hsl(220_18%_95%)]"
-            >
-              Open V2 terminal
-            </Link>
-
-            <Link
-              to="/v3"
-              className="inline-flex items-center rounded-md border border-[hsl(220_14%_80%)] bg-white px-3 py-1.5 text-xs font-semibold text-[hsl(222_47%_12%)] hover:bg-[hsl(220_18%_95%)]"
-            >
-              Open V3 compact
-            </Link>
-
-            <a
-              href="https://app.eanrunner.com"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-md border border-[hsl(220_14%_85%)] bg-white px-3 py-1.5 text-xs font-semibold text-[hsl(222_47%_12%)] hover:bg-[hsl(220_18%_97%)] transition-colors"
-            >
-              Login
-            </a>
-          </div>
-
-          {/* Product grid */}
-          <div className="flex-1 p-5">
-            {/* Info banner */}
-            <div className="mb-5 rounded-lg border border-[hsl(221_60%_88%)] bg-[hsl(221_80%_97%)] px-4 py-3 text-xs text-[hsl(221_40%_35%)] space-y-1">
-              <p className="font-semibold text-[hsl(221_60%_30%)] text-[11px] uppercase tracking-wide">About this catalog</p>
-              <p>
-                {hasSupplierAccess
-                  ? 'You are signed in with supplier access. Prices, stock and margins use your approved suppliers only.'
-                  : 'Supplier names and exact prices are not shown. Each product displays a margin grade based on supplier cost vs. the cheapest public market price.'}
-              </p>
-              <p className="font-medium">Margin indicators work like this:</p>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-                {[
-                  { grade: 'A', label: 'Above 20%', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-                  { grade: 'B', label: '10–20%', bg: 'bg-blue-100', text: 'text-blue-800' },
-                  { grade: 'C', label: '5–10%', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-                  { grade: 'D', label: '0–5%', bg: 'bg-orange-100', text: 'text-orange-800' },
-                  { grade: 'E', label: 'Loss 0–10%', bg: 'bg-red-100', text: 'text-red-800' },
-                  { grade: 'F', label: 'Loss >10%', bg: 'bg-red-200', text: 'text-red-900' },
-                ].map(({ grade, label, bg, text }) => (
-                  <span key={grade} className="inline-flex items-center gap-1">
-                    <span className={`inline-block font-bold px-1.5 py-0.5 rounded text-[10px] ${bg} ${text}`}>{grade}</span>
-                    <span className="text-[hsl(220_12%_40%)]">{label}</span>
-                  </span>
-                ))}
-              </div>
-              {!user && (
-                <div className="pt-1">
-                  <p className="text-xs text-[hsl(221_40%_35%)]">Sign in via the <span className="font-semibold">Login</span> button to unlock supplier prices, stock and exact margins.</p>
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-                {error}
-              </div>
-            )}
-
-            {!loading && visibleProducts.length === 0 && !error && (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <Search className="w-10 h-10 text-[hsl(220_12%_70%)] mb-3" />
-                <p className="text-sm font-medium text-[hsl(222_47%_8%)]">No products found</p>
-                <p className="text-xs text-[hsl(220_12%_40%)] mt-1">
-                  {selectedCategory || keyword ? 'Try adjusting your filters' : 'Select a category or search by keyword'}
-                </p>
-              </div>
-            )}
-
-            <div className={`grid ${isCompactVersion ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7 gap-2' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4'}`}>
-              {visibleProducts.map((product) => (
-                <ProductCard
-                  key={product.ean}
-                  product={product}
-                  hasSupplierAccess={hasSupplierAccess}
-                  compact={isCompactVersion}
-                />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalProducts > pageSize && !loading && (
-              <div className="flex items-center justify-center gap-3 mt-8 pb-2">
-                <button
-                  type="button"
-                  onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  disabled={page === 1}
-                  className="px-4 py-1.5 text-xs font-medium rounded-md border border-[hsl(220_12%_80%)] bg-white text-[hsl(222_47%_12%)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[hsl(221_60%_97%)] transition-colors"
-                >
-                  ← Previous
-                </button>
-                <span className="text-xs text-[hsl(220_12%_45%)]">
-                  Page {page} of {Math.ceil(totalProducts / pageSize)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setPage((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  disabled={page >= Math.ceil(totalProducts / pageSize)}
-                  className="px-4 py-1.5 text-xs font-medium rounded-md border border-[hsl(220_12%_80%)] bg-white text-[hsl(222_47%_12%)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[hsl(221_60%_97%)] transition-colors"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {modalProduct && (
-        <RequestSupplierModal
-          ean={modalProduct.ean}
-          title={modalProduct.title}
-          sourcePage="webversion-catalog"
-          onClose={() => setModalEan(null)}
-        />
-      )}
-    </>
-  );
+  return null;
 }
+
 
 export default App;
 

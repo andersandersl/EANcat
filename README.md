@@ -1,43 +1,60 @@
-# WebVersion
+# WebVersion (EANcat)
 
-This is an isolated public-safe implementation for EANrunner.
+Public, internet-facing product catalog for EANrunner. It reads from an
+**isolated showcase database** — never the production EANrunner database.
+
+## Architecture
+
+- The public catalog reads a single denormalized, read-optimized table
+  (`dbo.showcase_product`) in a **dedicated** Azure SQL database
+  (`eanrunner-catalog-db`), separate from production.
+- That table is refreshed **once daily** by a sync job in the EANRunner
+  Function App (`functions/sync_showcase.py`, 07:15 UTC), which projects a
+  public-safe snapshot from production. See the EANRunner repo for the data
+  layer (Bicep module `infra/modules/catalog-sql.bicep`, DDL
+  `infra/sql/showcase/showcase_product.sql`).
+- The showcase DB holds ONLY public-safe fields: per-market margin grade
+  (A–F / N/A), stock status, competitor count, market price, and one market
+  (PriceRunner) link. It contains **no** supplier names, cost prices, or margin
+  percentages — so none can leak.
+- There is **no login/auth**. The site is fully public.
 
 ## Scope
 
-- Public catalog only shows:
-  - `in stock` or `not in stock`
-  - margin indicator `A-F` (`N/A` fallback)
-  - one Prisjakt link
-- Public API/UI never expose supplier names or exact prices.
-- Users can request supplier+exact pricing by email.
+The public catalog shows, per market (DK/SE/FI):
+- `in stock` / `not in stock`
+- margin grade `A`–`F` (`N/A` fallback)
+- competitor count + one market link
+- Shareable filter URLs (filters are encoded in the query string).
 
 ## Folders
 
 - `web/` React + Vite frontend
-- `api/` Express + TypeScript backend
+- `api/` Express + TypeScript backend (reads the showcase DB only)
 
 ## Quick Start
 
 1. Copy env templates:
-   - `copy web/.env.example web/.env`
-   - `copy api/.env.example api/.env`
-2. Set Firebase credentials in `api/.env`.
-3. Start API:
-   - `npm --prefix api run dev`
-4. Start web:
-   - `npm --prefix web run dev`
+   - `cp web/.env.example web/.env`
+   - `cp api/.env.example api/.env`
+2. Point `api/.env` at the showcase DB (`eanrunner-catalog-sql` /
+   `eanrunner-catalog-db`).
+3. Start API: `npm --prefix api run dev`
+4. Start web: `npm --prefix web run dev`
 
 ## API Endpoints
 
 - `GET /health`
-- `GET /api/public/products?query=&limit=`
-- `GET /api/public/products/:ean`
-- `POST /api/public/request-supplier-price`
+- `GET /api/public/products?query=&limit=&page=&market=&grades=&category=&brand=&inStock=&hasImage=`
+- `GET /api/public/products/:ean?market=`
+- `GET /api/public/brand-clusters`
+- `GET /api/public/categories`
+- `GET /api/public/stats`
 
 ## Notes
 
-- This implementation does not modify the original project.
-- Email sending uses Resend when `RESEND_API_KEY` is set.
-- Requests are always logged in Firestore (`REQUESTS_COLLECTION`).
-- Azure App Service cutover notes: `AZURE_CUTOVER.md`
-- Google Cloud Run cutover notes: `CLOUD_RUN_CUTOVER.md`
+- The daily snapshot is owned by the EANRunner Function App; this repo only
+  reads the result.
+- Deployment cutover notes: `AZURE_CUTOVER.md`, `CLOUD_RUN_CUTOVER.md` (these
+  predate the showcase split and reference the old prod DB — update env values
+  to the showcase DB when re-hosting the API).
