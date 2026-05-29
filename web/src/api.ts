@@ -6,8 +6,9 @@ import type {
   ProductListResponse,
 } from './types';
 
-// TODO(catalog-cutover): replace with the Azure Container App URL once deployed.
-const PROD_API_BASE = 'https://eanrunner-shop-api-jsqvfzhjra-ew.a.run.app';
+// Azure Container App (eancat-api) — reads the isolated showcase_product DB.
+// api.ts ignores VITE_API_BASE_URL in prod, so this MUST be hardcoded here.
+const PROD_API_BASE = 'https://eancat-api.wonderfulcliff-a6d449df.swedencentral.azurecontainerapps.io';
 
 // In production, force the known backend to avoid stale platform env values.
 const RAW_API_BASE = import.meta.env.DEV
