@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Product images are served from the Icecat CDN. Warm up the
+         DNS + TLS connection early so the first images paint faster. -->
+    <link rel="preconnect" href="https://images.icecat.biz" crossorigin />
+    <link rel="dns-prefetch" href="https://images.icecat.biz" />
     <title>EANrunner - The catalogue</title>
   </head>
   <body>

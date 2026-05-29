@@ -242,8 +242,15 @@ function ProductCard({
           <img
             src={product.image || PLACEHOLDER_IMAGE}
             alt={product.title}
+            width={400}
+            height={400}
+            loading="lazy"
+            decoding="async"
             className={`w-full h-full object-contain ${compact ? 'p-2.5' : 'p-3'}`}
-            onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              if (img.src !== PLACEHOLDER_IMAGE) img.src = PLACEHOLDER_IMAGE;
+            }}
           />
           <span className={`absolute ${compact ? 'top-1.5 right-1.5' : 'top-2 right-2'} text-[10px] font-bold px-1.5 py-0.5 rounded ${grade.bg} ${grade.text}`}>
             {product.marginGrade}

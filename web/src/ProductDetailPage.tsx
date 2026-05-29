@@ -119,6 +119,9 @@ export default function ProductDetailPage() {
               <img
                 src={product.image}
                 alt={product.title}
+                width={600}
+                height={600}
+                decoding="async"
                 className="w-full h-full object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
