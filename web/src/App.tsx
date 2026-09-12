@@ -433,6 +433,20 @@ function App() {
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Cold-start notice (EANRunner ADR-0114): eancat-api scales to zero and the
+  // showcase DB auto-pauses (ADR-0036), so the first visit after a quiet spell
+  // waits 10–60 s (brand clusters time out at 7 s and fall back to the plain
+  // list, which then waits it out). After 3 s of loading we say so, instead of
+  // leaving a bare progress bar that looks like a hang.
+  const [wakingUp, setWakingUp] = useState(false);
+  useEffect(() => {
+    if (!loading) {
+      setWakingUp(false);
+      return;
+    }
+    const id = setTimeout(() => setWakingUp(true), 3000);
+    return () => clearTimeout(id);
+  }, [loading]);
   const [page, setPage] = useState(1);
   const [listVisibleLimit, setListVisibleLimit] = useState(PAGE_SIZE);
   const [brandVisibleLimit, setBrandVisibleLimit] = useState(BRAND_PAGE_INITIAL_BATCH_SIZE);
@@ -1467,6 +1481,11 @@ function App() {
                 <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[hsl(220_16%_90%)]">
                   <div className="catalog-loading-bar__indicator h-full w-1/3 rounded-full bg-[hsl(221_92%_55%)]" />
                 </div>
+              ) : null}
+              {loading && wakingUp ? (
+                <p className="mt-1.5 text-xs text-[hsl(220_16%_40%)]" role="status" aria-live="polite">
+                  The catalogue is waking up — the first visit after a quiet spell can take up to a minute. Hang on.
+                </p>
               ) : null}
 
             </div>
