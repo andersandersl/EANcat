@@ -21,7 +21,9 @@ const BlogPostPage = lazy(() => import('./BlogPostPage.tsx'))
 const ContactPage = lazy(() => import('./ContactPage.tsx'))
 const PrivacyPolicyPage = lazy(() => import('./PrivacyPolicyPage.tsx'))
 const InvestorDeckPage = lazy(() => import('./InvestorDeckPage.tsx'))
+const OpportunityFinderPage = lazy(() => import('./OpportunityFinderPage.tsx'))
 const NotFoundPage = lazy(() => import('./NotFoundPage.tsx'))
+const isOpportunityHost = window.location.hostname.toLowerCase() === 'opportunity.eanrunner.com'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -29,11 +31,14 @@ createRoot(document.getElementById('root')!).render(
       <ScrollToTop />
       <Suspense fallback={<div className="min-h-screen bg-[hsl(220_18%_97%)]" />}>
         <Routes>
+          {isOpportunityHost ? <Route path="*" element={<OpportunityFinderPage />} /> : <>
           <Route path="/" element={<App />} />
           <Route path="/brand/:brandParam" element={<App />} />
           <Route path="/about-us" element={<AboutUsPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/for-retailers" element={<ForRetailersPage />} />
+          <Route path="/opportunity" element={<OpportunityFinderPage />} />
+          <Route path="/opportunity-finder" element={<Navigate to="/opportunity" replace />} />
           <Route path="/for-distributors" element={<ForDistributorsPage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/pricing/distributors" element={<DistributorPricingPage />} />
@@ -50,6 +55,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/v3" element={<Navigate to="/" replace />} />
           <Route path="/product/:ean" element={<ProductDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />
+          </>}
         </Routes>
       </Suspense>
     </BrowserRouter>
