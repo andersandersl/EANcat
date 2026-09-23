@@ -18,7 +18,7 @@ export type PublicProduct = {
 export type ProductListResponse = {
   products: PublicProduct[];
   count: number;
-  total: number;
+  total: number | null;
 };
 
 export type BrandClusterGroup = {
@@ -67,4 +67,34 @@ export type SearchSuggestion = {
 export type SearchSuggestResponse = {
   query: string;
   suggestions: SearchSuggestion[];
+};
+
+export type Opportunity = Omit<PublicProduct, 'updatedAt'> & {
+  reason: string;
+};
+
+export type OpportunityScanResponse = {
+  scanId: string;
+  shop: { url: string; domain: string };
+  market: { code: 'DK' | 'SE' | 'FI'; confidence: 'high' | 'medium' | 'low' };
+  detectedCategories: Array<{ sourceLabel: string; catalogCategory: string; confidence: number }>;
+  detectedBrands: string[];
+  detectedEanCount: number;
+  coverage: { pagesScanned: number; isPartial: boolean; warnings: string[] };
+  opportunities: Opportunity[];
+  hasMore: boolean;
+};
+
+export type OpportunityScanPageResponse = {
+  opportunities: Opportunity[];
+  hasMore: boolean;
+};
+
+export type SupplierConnectionPayload = {
+  scanId: string;
+  shopUrl: string;
+  market: 'DK' | 'SE' | 'FI';
+  selectedEans: string[];
+  contact: { name: string; email: string; company: string; phone?: string };
+  consent: true;
 };

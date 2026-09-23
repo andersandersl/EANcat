@@ -1,0 +1,98 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px; background: hsl(var(--background)); }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  /* Filter chip */
+  .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 10px;
+    border-radius: 9999px;
+    background: #EAECF1;
+    border: 1px solid #DDE0E7;
+    color: #1c2745;
+    font: 500 12px "Inter";
+    cursor: pointer;
+  }
+  .chip .key { color: hsl(var(--muted-foreground)); }
+  .chip .x { width: 12px; height: 12px; opacity: 0.6; }
+
+  /* Toast */
+  .toast {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: #fff;
+    border: 1px solid #DDE0E7;
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.16), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+    max-width: 380px;
+  }
+  .toast .ic { width: 16px; height: 16px; margin-top: 2px; }
+  .toast .title { font: 600 13px "Inter"; }
+  .toast .desc  { font: 400 12px "Inter"; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+  .toast.success .ic { color: #10B981; }
+  .toast.error   { border-color: #EF444466; }
+  .toast.error .ic { color: #EF4444; }
+  .toast.error .title { color: #BE123C; }
+
+  /* Tooltip */
+  .tt-wrap { display: inline-flex; align-items: center; gap: 14px; }
+  .tt {
+    background: #0C1228;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font: 500 12px "Inter";
+    box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.16);
+    position: relative;
+  }
+  .tt::after {
+    content: ""; position: absolute; left: -5px; top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-right-color: #0C1228;
+  }
+  .tt-rich { padding: 8px 10px; }
+  .tt-rich .l1 { font: 500 12px "Inter"; }
+  .tt-rich .l2 { font: 400 11px "Inter"; opacity: 0.7; margin-top: 2px; }
+</style></head>
+<body>
+  <div class="stack">
+    <div class="filter-row">
+      <span class="chip"><span class="key">Brand:</span> Logitech
+        <svg class="x" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </span>
+      <span class="chip"><span class="key">Category:</span> Mice
+        <svg class="x" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </span>
+      <span class="chip"><span class="key">SE margin ≥:</span> 20%
+        <svg class="x" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </span>
+    </div>
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div class="toast success">
+        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <div>
+          <div class="title">Added to feed</div>
+          <div class="desc">EAN 4013288234186</div>
+        </div>
+      </div>
+      <div class="toast error">
+        <svg class="ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <div class="title">Refresh failed</div>
+          <div class="desc">request timeout (pricerunner_dk · 504)</div>
+        </div>
+      </div>
+    </div>
+    <div class="tt-wrap" style="margin-left:8px">
+      <div class="tt">Add to feed</div>
+      <div class="tt tt-rich">
+        <div class="l1"><strong>50</strong> på lager</div>
+        <div class="l2"><strong>+12</strong> fra fjernlager (~7 dage)</div>
+      </div>
+    </div>
+  </div>
+</body></html>

@@ -26,9 +26,9 @@ const INITIAL_FORM: FormState = {
 
 export default function GetApprovedPage() {
   useDocumentMeta({
-    title: 'Get approved',
+    title: 'Get Approved to Join EANrunner',
     description:
-      'Request access to EANrunner. Fill out the form and we will help you get started serving more products in your shop.',
+      'Request access to EANrunner. Submit your business details to start onboarding products and activating supplier catalogs faster.',
     path: '/get-approved',
   });
 

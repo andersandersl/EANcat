@@ -6,7 +6,7 @@ export default function PrivacyPolicyPage() {
   useDocumentMeta({
     title: 'Privacy Policy',
     description:
-      'How EANrunner collects, uses, discloses, stores, and safeguards personal data across its services, in line with GDPR and CCPA.',
+      'Review how EANrunner collects, uses, and protects personal data across its services in line with GDPR, CCPA, and applicable privacy laws.',
     path: '/privacy-policy',
   });
 

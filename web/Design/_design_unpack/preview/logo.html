@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 28px; background: hsl(var(--card)); }
+  .logos {
+    display: grid;
+    grid-template-columns: 1fr 1fr 0.45fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .tile {
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 18px;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 130px;
+  }
+  .tile-light { background: hsl(var(--background)); }
+  .tile-dark  { background: #0C1228; }
+  .tile-blue  { background: hsl(var(--primary)); }
+  .tile img { max-width: 100%; max-height: 80px; display: block; }
+  .tile-icon img { max-height: 92px; }
+  .label-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .label-row .eyebrow { font-size: 11px; }
+  .label-row .mono { font-size: 11px; color: hsl(var(--muted-foreground)); }
+</style>
+</head><body>
+  <div class="logos">
+    <div>
+      <div class="tile tile-light">
+        <img src="../assets/eanrunner-logo-light.png" alt="EANrunner wordmark — dark on light">
+      </div>
+      <div class="label-row"><span class="eyebrow">Wordmark · light surface</span><span class="mono">eanrunner-logo-light.png</span></div>
+    </div>
+    <div>
+      <div class="tile tile-dark">
+        <img src="../assets/eanrunner-logo-white.png" alt="EANrunner wordmark — white on dark">
+      </div>
+      <div class="label-row"><span class="eyebrow">Wordmark · dark surface</span><span class="mono">eanrunner-logo-white.png</span></div>
+    </div>
+    <div>
+      <div class="tile tile-icon tile-blue">
+        <img src="../assets/logo-icon.svg" style="filter: brightness(0) invert(1);" alt="EANrunner icon">
+      </div>
+      <div class="label-row"><span class="eyebrow">Icon</span></div>
+    </div>
+  </div>
+</body></html>

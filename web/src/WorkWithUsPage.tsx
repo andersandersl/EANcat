@@ -18,9 +18,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function WorkWithUsPage() {
   useDocumentMeta({
-    title: 'Small team. Big network.',
+    title: 'Partner with EANrunner',
     description:
-      'Work with EANrunner. We connect retailers, distributors, and brands across Europe through structured product data and automation.',
+      'Partner with EANrunner to connect retailers, distributors, and brands through structured product data, integrations, and automation across Europe.',
     path: '/work-with-us',
   });
 

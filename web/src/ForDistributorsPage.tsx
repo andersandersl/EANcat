@@ -5,9 +5,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function ForDistributorsPage() {
   useDocumentMeta({
-    title: 'For Distributors',
+    title: 'For Distributors: Reach More Retailers',
     description:
-      'One connection, European reach. Connect your product data to EANrunner and access our network of shops across Europe to increase sell-through.',
+      'Connect your catalog once and reach more retailers across Europe with structured product data, feed handling, and faster channel onboarding.',
     path: '/for-distributors',
   });
 

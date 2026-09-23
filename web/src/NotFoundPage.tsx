@@ -5,8 +5,8 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function NotFoundPage() {
   useDocumentMeta({
-    title: 'Page not found',
-    description: 'The page you were looking for could not be found.',
+    title: '404 Page Not Found',
+    description: 'The requested EANrunner page could not be found. Browse the catalog or navigate to key company pages.',
   });
 
   return (

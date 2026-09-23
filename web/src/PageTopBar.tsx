@@ -129,6 +129,7 @@ export default function PageTopBar() {
                       <div className="flex flex-col gap-1 text-[13px] leading-6">
                         <Link to="/for-retailers" className="hover:underline" onClick={() => setMenuOpen(false)}>For Retailers</Link>
                         <Link to="/for-distributors" className="hover:underline" onClick={() => setMenuOpen(false)}>For Distributors</Link>
+                        <Link to="/pricing" className="hover:underline" onClick={() => setMenuOpen(false)}>Pricing</Link>
                         <Link to="/about-us" className="hover:underline" onClick={() => setMenuOpen(false)}>About us</Link>
                         <Link to="/how-it-works" className="hover:underline" onClick={() => setMenuOpen(false)}>How it works</Link>
                         <Link to="/work-with-us" className="hover:underline" onClick={() => setMenuOpen(false)}>Small team. Big network.</Link>

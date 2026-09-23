@@ -7,9 +7,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function AboutUsPage() {
   useDocumentMeta({
-    title: 'About us',
+    title: 'About EANrunner',
     description:
-      'EANrunner connects distributors and retailers with live, enriched product data and market-ready catalog automation. Meet the team behind it.',
+      'Learn about EANrunner, the team helping distributors, brands, and retailers scale cross-border ecommerce with structured product data and automation.',
     path: '/about-us',
   });
 
@@ -58,6 +58,16 @@ export default function AboutUsPage() {
               <figcaption className="px-4 py-3">
                 <p className="text-sm font-semibold text-[hsl(222_47%_12%)]">Jacob's garage</p>
                 <a href="mailto:jacob@eanrunner.com" className="text-xs text-[hsl(221_92%_45%)] hover:underline">jacob@eanrunner.com</a>
+                <p>
+                  <a
+                    href="https://www.linkedin.com/in/jacob-marup-lorentzen/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-[hsl(221_92%_45%)] hover:underline"
+                  >
+                    LinkedIn
+                  </a>
+                </p>
               </figcaption>
             </figure>
 
@@ -71,6 +81,16 @@ export default function AboutUsPage() {
               <figcaption className="px-4 py-3">
                 <p className="text-sm font-semibold text-[hsl(222_47%_12%)]">Anders' garage</p>
                 <a href="mailto:anders@eanrunner.com" className="text-xs text-[hsl(221_92%_45%)] hover:underline">anders@eanrunner.com</a>
+                <p>
+                  <a
+                    href="https://www.linkedin.com/in/anderslorenzenandersen/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-[hsl(221_92%_45%)] hover:underline"
+                  >
+                    LinkedIn
+                  </a>
+                </p>
               </figcaption>
             </figure>
           </div>

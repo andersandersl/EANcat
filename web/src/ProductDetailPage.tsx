@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Loader2, Package, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Loader2, Package } from 'lucide-react';
 import { getProductByEan } from './api';
 import type { MarginGrade, PublicProduct } from './types';
 import SiteFooter from './SiteFooter';
+import { useDocumentMeta } from './useDocumentMeta';
 
 const GRADE_BADGE: Record<MarginGrade, string> = {
   A: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -15,18 +16,41 @@ const GRADE_BADGE: Record<MarginGrade, string> = {
   'N/A': 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
+function formatCategoryDisplayName(value: string): string {
+  const afterChevron = value.includes('>') ? value.split('>').at(-1) ?? value : value;
+  const normalized = afterChevron.trim();
+  if (normalized.includes(' - ')) {
+    return normalized.split(' - ').at(-1)?.trim() || normalized;
+  }
+  return normalized;
+}
+
 // Estimated margin range from the public grade — mirrors App.tsx marginRangeLabel.
 function marginRangeLabel(grade: MarginGrade, marketPrice: number | null, currency: string | null): string | null {
   if (!marketPrice || marketPrice <= 0 || grade === 'N/A') return null;
-  const sym = currency === 'DKK' || currency === 'SEK' ? '' : '€';
-  const suffix = currency === 'DKK' ? ' kr' : currency === 'SEK' ? ' kr' : '';
-  const fmt = (v: number) => `${sym}${Math.round(Math.abs(v)).toLocaleString()}${suffix}`;
+  const marketCurrency = (currency || 'EUR').toUpperCase();
+  const resolvedCurrency = marketCurrency === 'DKK' || marketCurrency === 'SEK' || marketCurrency === 'EUR'
+    ? marketCurrency
+    : 'EUR';
+  const localeByCurrency: Record<string, string> = {
+    DKK: 'da-DK',
+    SEK: 'sv-SE',
+    EUR: 'fi-FI',
+  };
+  const fmt = (v: number) => new Intl.NumberFormat(localeByCurrency[resolvedCurrency], {
+    style: 'currency',
+    currency: resolvedCurrency,
+    currencyDisplay: 'code',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(v));
+  const zeroLabel = fmt(0);
   switch (grade) {
     case 'A': return `More than +${fmt(marketPrice * 0.20)}`;
     case 'B': return `Between ${fmt(marketPrice * 0.10)} to ${fmt(marketPrice * 0.20)}`;
     case 'C': return `Between ${fmt(marketPrice * 0.05)} to ${fmt(marketPrice * 0.10)}`;
-    case 'D': return `Between ${currency === 'DKK' || currency === 'SEK' ? '0 kr' : '€0'} to ${fmt(marketPrice * 0.05)}`;
-    case 'E': return `Loss between 0 and -${fmt(marketPrice * 0.10)}`;
+    case 'D': return `Between ${zeroLabel} to ${fmt(marketPrice * 0.05)}`;
+    case 'E': return `Loss between ${zeroLabel} and -${fmt(marketPrice * 0.10)}`;
     case 'F': return `Less than -${fmt(marketPrice * 0.10)}`;
     default: return null;
   }
@@ -45,12 +69,20 @@ export default function ProductDetailPage() {
   const location = useLocation();
   const market = (() => {
     const m = (new URLSearchParams(location.search).get('market') || '').toLowerCase();
-    return m === 'se' || m === 'fi' ? m : 'dk';
+    return m === 'dk' || m === 'se' || m === 'fi' ? m : 'fi';
   })();
 
   const [product, setProduct] = useState<PublicProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useDocumentMeta({
+    title: product ? `${product.brand} ${product.title}` : ean ? `Product ${ean}` : 'Product Details',
+    description: product
+      ? `View ${product.title} by ${product.brand} with EAN data, stock status, margin grade, and market pricing insights in the EANrunner catalog.`
+      : 'View product details in the EANrunner wholesale catalog, including stock status, pricing, and margin insights.',
+    path: ean ? `/product/${encodeURIComponent(ean)}` : '/product',
+  });
 
   useEffect(() => {
     if (!ean) return;
@@ -166,30 +198,10 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Market price + link */}
-          {product.marketPrice != null && (
-            <div className="rounded-lg border border-[hsl(220_14%_89%)] bg-white px-3 py-2.5">
-              <p className="text-[10px] uppercase tracking-wider text-[hsl(220_12%_55%)] font-semibold">Market price ({market.toUpperCase()})</p>
-              <p className="text-sm font-semibold text-[hsl(222_47%_8%)] mt-0.5">
-                {product.marketPrice.toLocaleString()} {product.marketCurrency ?? ''}
-              </p>
-              {product.cheapestMarketLink && (
-                <a
-                  href={product.cheapestMarketLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[hsl(221_92%_55%)] hover:underline mt-1.5"
-                >
-                  View on market <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          )}
-
           {product.category && (
             <div className="bg-white rounded-lg border border-[hsl(220_14%_89%)] px-3 py-2">
               <p className="text-[9px] uppercase tracking-wider text-[hsl(220_12%_55%)] font-semibold">Category</p>
-              <p className="text-xs font-medium text-[hsl(222_47%_8%)] mt-0.5">{product.category}</p>
+              <p className="text-xs font-medium text-[hsl(222_47%_8%)] mt-0.5">{formatCategoryDisplayName(product.category)}</p>
             </div>
           )}
         </div>

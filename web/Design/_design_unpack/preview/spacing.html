@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 24px; }
+  .scale { display: grid; grid-template-columns: 36px 1fr; gap: 14px; }
+  .label { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); align-self: center; text-align: right; }
+  .bar   { height: 18px; background: hsl(var(--accent)); border-radius: 4px; border: 1px solid hsl(221 92% 55% / 0.3); }
+  .row   { display: contents; }
+  .v1 { width: 4px; }
+  .v2 { width: 8px; }
+  .v3 { width: 12px; }
+  .v4 { width: 16px; }
+  .v5 { width: 20px; }
+  .v6 { width: 24px; }
+  .v8 { width: 32px; }
+  .v10{ width: 40px; }
+  .v12{ width: 48px; }
+  .v16{ width: 64px; }
+  .v20{ width: 80px; }
+  .v24{ width: 96px; }
+  .lbl-r { display: flex; align-items: center; gap: 14px; }
+  .pix { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); }
+  .tw  { font: var(--type-mono); font-size: 11px; color: hsl(var(--foreground)); }
+</style>
+</head><body>
+  <div class="scale">
+    <span class="label">1</span><div class="lbl-r"><div class="bar v1"></div><span class="pix">4px</span><span class="tw">space-1 · gap-1 · pl-1</span></div>
+    <span class="label">2</span><div class="lbl-r"><div class="bar v2"></div><span class="pix">8px</span><span class="tw">space-2 · most-common chip gap</span></div>
+    <span class="label">3</span><div class="lbl-r"><div class="bar v3"></div><span class="pix">12px</span><span class="tw">space-3 · py-3 inside cards</span></div>
+    <span class="label">4</span><div class="lbl-r"><div class="bar v4"></div><span class="pix">16px</span><span class="tw">space-4 · default card gap</span></div>
+    <span class="label">6</span><div class="lbl-r"><div class="bar v6"></div><span class="pix">24px</span><span class="tw">space-6 · page gutter (md)</span></div>
+    <span class="label">8</span><div class="lbl-r"><div class="bar v8"></div><span class="pix">32px</span><span class="tw">space-8 · page gutter (lg) / section break</span></div>
+    <span class="label">12</span><div class="lbl-r"><div class="bar v12"></div><span class="pix">48px</span><span class="tw">space-12 · max — between major regions</span></div>
+  </div>
+</body></html>

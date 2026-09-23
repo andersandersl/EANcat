@@ -1,0 +1,223 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 14px; background: hsl(var(--background)); }
+  .header { margin-bottom: 12px; }
+  .title { font: 600 13px "Inter"; }
+  .sub { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); }
+
+  .row { display: grid; grid-template-columns: 220px 60px 1fr; gap: 18px; align-items: start; }
+
+  /* ───────────────────────── EXPANDED ─────────────────────────── */
+  .rail-x {
+    width: 220px; height: 360px;
+    background: #fff; border: 1px solid #DDE0E7; border-radius: 8px;
+    padding: 12px 8px; display: flex; flex-direction: column; gap: 2px;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    position: relative;
+  }
+  .rail-x .brandrow { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; position: relative; }
+  .rail-x .brandrow img { width: 18px; height: 18px; }
+  .rail-x .brandrow .wm { font: 700 14px "Inter"; color: #0C1228; letter-spacing: -0.01em; }
+  .rail-x .brandrow .wm .r { color: #5A6178; font-weight: 600; }
+  .rail-x .group-label {
+    font: 600 9px "Inter"; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #8B91A2; padding: 10px 10px 4px;
+  }
+  .rail-x .group-label.admin { color: #B6791D; }
+  .rail-x .item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font: 500 13px "Inter";
+    color: #2C354B;
+  }
+  .rail-x .item .ic svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .rail-x .item .count {
+    margin-left: auto; font: 600 10px "Inter"; font-variant-numeric: tabular-nums;
+    background: #EAECF1; color: #5A6178; border-radius: 9999px; padding: 1px 7px;
+  }
+  .rail-x .item:hover { background: #E5EDFF66; }
+  .rail-x .item.on { background: #1A5EFF; color: #fff; }
+  .rail-x .item.on .count { background: #ffffff2e; color: #fff; }
+  .rail-x .item.admin .ic { color: #F59E0B; }
+  .rail-x .item.admin:hover { background: #FEF3C766; color: #92400E; }
+  .rail-x .item.admin.on { background: #F59E0B; color: #fff; }
+  .rail-x .item.admin.on .ic { color: #fff; }
+  .rail-x .foot {
+    margin-top: auto; padding: 8px 4px 2px;
+    border-top: 1px solid #DDE0E7;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rail-x .foot .avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: #1A5EFF;
+    color: #fff; font: 600 11px "Inter";
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rail-x .foot .who { flex: 1; min-width: 0; line-height: 1.2; }
+  .rail-x .foot .e { font: 500 12px "Inter"; color: #0C1228; }
+  .rail-x .foot .t { font: 400 10px "Inter"; color: #5A6178; }
+
+  /* collapse chevron */
+  .collapse-btn {
+    position: absolute; top: 12px; right: -10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 1px solid #DDE0E7;
+    display: flex; align-items: center; justify-content: center;
+    color: #5A6178;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    cursor: pointer;
+  }
+  .collapse-btn svg { width: 12px; height: 12px; }
+
+  /* ───────────────────────── COLLAPSED ────────────────────────── */
+  .rail-c {
+    width: 60px; height: 360px;
+    background: #fff; border: 1px solid #DDE0E7; border-radius: 8px;
+    padding: 12px 0; display: flex; flex-direction: column; align-items: center;
+    gap: 2px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    position: relative;
+  }
+  .rail-c .logo {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+  }
+  .rail-c .logo img { width: 22px; height: 22px; }
+  .rail-c .item {
+    width: 100%; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: #5A6178; position: relative;
+  }
+  .rail-c .item::before {
+    content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 0; border-radius: 0 2px 2px 0; background: #1A5EFF;
+    transition: height 140ms ease;
+  }
+  .rail-c .item.on::before { height: 20px; }
+  .rail-c .item.on { color: #1A5EFF; }
+  .rail-c .item:hover { color: #1A5EFF; }
+  .rail-c .item.admin { color: #B6791D; }
+  .rail-c .item.admin::before { background: #F59E0B; }
+  .rail-c .item.admin.on { color: #B6791D; }
+  .rail-c .sep { width: 28px; height: 1px; background: #DDE0E7; margin: 6px 0; }
+  .rail-c .item svg { width: 16px; height: 16px; }
+  .rail-c .foot {
+    margin-top: auto; padding: 8px 0 2px;
+    border-top: 1px solid #DDE0E7;
+    width: 28px; display: flex; justify-content: center;
+  }
+  .rail-c .foot .avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: #1A5EFF;
+    color: #fff; font: 600 10px "Inter";
+    display: flex; align-items: center; justify-content: center;
+  }
+  .rail-c .collapse-btn { right: -10px; }
+  .rail-c .collapse-btn svg { transform: rotate(180deg); }
+
+  /* Legend */
+  .legend {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 4px 0;
+    font: 500 12px "Inter";
+    color: #5A6178;
+  }
+  .committed-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: 600 10px "Inter"; letter-spacing: 0.04em; text-transform: uppercase;
+    background: hsl(152 76% 39% / 0.15); color: #047857;
+    padding: 3px 8px; border-radius: 9999px;
+    box-shadow: inset 0 0 0 1px hsl(152 76% 39% / 0.35);
+    width: max-content;
+  }
+  .legend .lbl { font: 600 11px "Inter"; color: #0C1228; }
+  .legend .pix { font-family: "JetBrains Mono", monospace; font-size: 10px; color: #5A6178; }
+  .legend .note { font: 400 11px "Inter"; color: #5A6178; line-height: 1.45; }
+</style>
+</head><body>
+  <div class="header">
+    <div class="title">Navigation rail — committed direction</div>
+    <div class="sub">C labelled (expanded) ↔ B indicator-bar (collapsed) · persisted via localStorage</div>
+  </div>
+
+  <div class="row">
+    <!-- Expanded (C) -->
+    <aside class="rail-x">
+      <div class="brandrow">
+        <img src="../assets/logo-icon.svg" alt="">
+        <span class="wm">EAN<span class="r">runner</span></span>
+        <button class="collapse-btn" title="Collapse">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+      <div class="group-label">Workspace</div>
+      <div class="item on">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        Search Products
+      </div>
+      <div class="item">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+        Feed
+        <span class="count">47</span>
+      </div>
+      <div class="group-label admin">Admin</div>
+      <div class="item admin">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+        Pipeline status
+      </div>
+      <div class="item admin">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+        Customer suppliers
+      </div>
+      <div class="item admin">
+        <span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>
+        Onboarding
+      </div>
+      <div class="foot">
+        <span class="avatar">IP</span>
+        <span class="who">
+          <span class="e">operator@ip-agency.dk</span>
+          <span class="t">ip_agency</span>
+        </span>
+      </div>
+    </aside>
+
+    <!-- Collapsed (B) -->
+    <aside class="rail-c">
+      <div class="logo"><img src="../assets/logo-icon.svg" alt=""></div>
+      <div class="item on" title="Search Products">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <div class="item" title="Feed">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      </div>
+      <div class="sep"></div>
+      <div class="item admin" title="Pipeline · admin">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="item admin" title="Suppliers · admin">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      </div>
+      <div class="item admin" title="Onboarding · admin">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+      </div>
+      <div class="foot">
+        <span class="avatar">IP</span>
+      </div>
+      <button class="collapse-btn" title="Expand">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </aside>
+
+    <div class="legend">
+      <div class="committed-tag">✓ Committed direction</div>
+      <span class="lbl">Expanded · 220px</span>
+      <span class="note">Labels, grouping, feed counter chip. Default state, persisted to localStorage.</span>
+      <span class="lbl" style="margin-top:6px">Collapsed · 60px</span>
+      <span class="note">Icon-only with a left-edge indicator bar (3×20px) marking active. No background fill on items, no shadow — quiet, very Linear.</span>
+      <span class="lbl" style="margin-top:6px">Toggle</span>
+      <span class="note">Chevron button straddling the right edge. Hover-reveal optional.</span>
+      <span class="pix" style="margin-top:6px">localStorage.eanrunner.railCollapsed = "1" | ""</span>
+    </div>
+  </div>
+</body></html>

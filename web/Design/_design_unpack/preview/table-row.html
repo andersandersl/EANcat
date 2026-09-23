@@ -1,0 +1,127 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 0; background: hsl(var(--background)); }
+  .card {
+    margin: 18px;
+    background: #fff;
+    border: 1px solid #DDE0E7;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; font: 400 13px "Inter"; }
+  thead th {
+    text-align: left;
+    font: 500 11px "Inter";
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 8px 12px;
+    border-bottom: 1px solid #DDE0E7;
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #DDE0E766;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #E5EDFF4D; }
+  .thumb { width: 36px; height: 36px; border-radius: 4px; background: #EAECF1; display: inline-block; border: 1px solid #DDE0E7; }
+  .pname { font: 500 13px "Inter"; color: #0C1228; }
+  .ptrans { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); }
+  .ean { font-family: "JetBrains Mono"; font-size: 12px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+  .brand {
+    display: inline-flex; padding: 1px 6px; border-radius: 4px;
+    background:#1A5EFF1A; color:#1A5EFF; border:1px solid #1A5EFF4D;
+    font: 500 10px "Inter"; letter-spacing: 0.02em;
+  }
+  .price { font: 500 13px "Inter"; font-variant-numeric: tabular-nums; }
+  .stock {
+    display: inline-flex; height: 22px; min-width: 38px; padding: 0 8px;
+    align-items: center; justify-content: center; border-radius: 4px;
+    font: 600 11px "Inter"; font-variant-numeric: tabular-nums;
+  }
+  .stk-g { background:#10B98126; color:#047857; box-shadow: inset 0 0 0 1px #10B98166; }
+  .stk-r { background:#EF444426; color:#BE123C; box-shadow: inset 0 0 0 1px #EF444466; }
+  .mpills { display: flex; flex-direction: column; gap: 1px; width: 70px; }
+  .mp {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 17px; padding: 0 5px; border-radius: 3px;
+    font: 700 9px "Inter"; font-variant-numeric: tabular-nums;
+  }
+  .mp.em-a   { background:#A7F3D0; color:#064E3B; box-shadow: inset 0 0 0 2px #10B98199; }
+  .mp.em-i   { background:#ECFDF5; color:#04785799; box-shadow: inset 0 0 0 1px #A7F3D099; }
+  .mp.am-i   { background:#FFFBEB; color:#78350F99; box-shadow: inset 0 0 0 1px #FCD34D99; }
+  .mp.ro-i   { background:#FFF1F2; color:#88133799; box-shadow: inset 0 0 0 1px #FECACA99; }
+  .feed-on {
+    display:inline-flex;align-items:center;height:22px;padding:0 8px;
+    border-radius:9999px;font:600 11px "Inter";
+    background:#10B98126;color:#047857;box-shadow:inset 0 0 0 1px #10B98166;
+  }
+  .feed-add {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:9999px;
+    background:#fff;border:1px solid #DDE0E7;color:hsl(var(--muted-foreground));
+    font-size:14px;
+  }
+</style></head>
+<body>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Feed</th>
+          <th></th>
+          <th>Product</th>
+          <th>EAN</th>
+          <th>Brand</th>
+          <th>Best price</th>
+          <th>PR margin</th>
+          <th>Stock</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="feed-on">✓ on</span></td>
+          <td><span class="thumb"></span></td>
+          <td>
+            <div class="pname">Logitech MX Master 3S Performance Wireless Mouse</div>
+            <div class="ptrans">Logitech MX Master 3S trådlös prestandamus</div>
+          </td>
+          <td><span class="ean">4013288234186</span></td>
+          <td><span class="brand">LOGITECH</span></td>
+          <td><span class="price">€89.50</span></td>
+          <td>
+            <div class="mpills">
+              <span class="mp em-i">DK +18.4%</span>
+              <span class="mp em-a">SE +24.5%</span>
+              <span class="mp am-i">FI +11.2%</span>
+            </div>
+          </td>
+          <td><span class="stock stk-g">62</span></td>
+        </tr>
+        <tr>
+          <td><span class="feed-add">+</span></td>
+          <td><span class="thumb"></span></td>
+          <td>
+            <div class="pname">Apple AirPods Pro (2nd gen) USB-C</div>
+            <div class="ptrans">Apple AirPods Pro (2:a generationen) USB-C</div>
+          </td>
+          <td><span class="ean">0194253397472</span></td>
+          <td><span class="brand">APPLE</span></td>
+          <td><span class="price">€189.00</span></td>
+          <td>
+            <div class="mpills">
+              <span class="mp am-i">DK +8.1%</span>
+              <span class="mp em-i">SE +21.0%</span>
+              <span class="mp ro-i">FI −3.2%</span>
+            </div>
+          </td>
+          <td><span class="stock stk-r">Out</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body></html>

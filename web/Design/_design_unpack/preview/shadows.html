@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 28px; background: hsl(var(--background)); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .tile { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .box {
+    width: 140px; height: 70px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+  }
+  .sh-card { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04); }
+  .sh-sm   { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
+  .sh-pop  { box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.16), 0 2px 6px -2px rgb(0 0 0 / 0.08); }
+  .label { font: var(--type-body-strong); }
+  .meta  { font: var(--type-mono); font-size: 10px; color: hsl(var(--muted-foreground)); text-align: center; max-width: 160px; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="tile">
+      <div class="box sh-sm"></div>
+      <div class="label">--shadow-sm</div>
+      <div class="meta">subtle · used on nav rail + sidebar</div>
+    </div>
+    <div class="tile">
+      <div class="box sh-card"></div>
+      <div class="label">--shadow-card</div>
+      <div class="meta">default · every Card + key UI containers</div>
+    </div>
+    <div class="tile">
+      <div class="box sh-pop"></div>
+      <div class="label">--shadow-pop</div>
+      <div class="meta">popovers · dropdowns · tooltips</div>
+    </div>
+  </div>
+</body></html>

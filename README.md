@@ -50,6 +50,31 @@ The public catalog shows, per market (DK/SE/FI):
 - `GET /api/public/brand-clusters`
 - `GET /api/public/categories`
 - `GET /api/public/stats`
+- `POST /api/public/opportunity-scan`
+- `GET /api/public/opportunity-scan/:scanId?offset=`
+- `POST /api/public/supplier-connection`
+
+## Opportunity Finder
+
+`https://opportunity.eanrunner.com` lets a retailer submit a public webshop URL, review suggested catalogue products from EU suppliers only, and request an introduction to the relevant suppliers. It is free for retailers and does not sell products, take payment, or arrange delivery. On `eanrunner.com`, `/opportunity` serves the finder and the legacy `/opportunity-finder` URL redirects there.
+
+### Local setup
+
+1. Configure the public catalogue variables in `api/.env` as described above.
+2. Set `EANRUNNER_OPPORTUNITY_API_URL` and `EANRUNNER_OPPORTUNITY_API_TOKEN` to the authenticated private EANrunner introduction endpoint. Do not expose either value in the web app.
+3. Run `npm --prefix api run dev` and `npm --prefix web run dev`, then visit `/opportunity-finder`.
+
+### Scan and privacy boundaries
+
+Scans run only on the API. The scanner accepts public `http`/`https` URLs, resolves and pins public DNS addresses for every request and redirect, and rejects local, private, reserved, and cloud-metadata address ranges. It uses a small budget: up to eight public pages, three redirects, 5 MB for the initial page, 512 KB per additional HTML/sitemap response, seven seconds per request, and twenty seconds in total. It observes accessible public pages only; it does not bypass robots restrictions, authentication, CAPTCHAs, or bot protection.
+
+The finder extracts public structured data, EAN/GTIN values, category/brand labels, and locale/currency hints. It infers DK, SE, or FI, prioritizes repeated product-category signals and retailer navigation categories, and maps the strongest matching category to `dbo.showcase_product` first. It excludes detected EANs, then adds one lower-priority category at a time only while fewer than ten opportunities have been found. The initial response shows up to ten in-stock products; when available, **Load more** retrieves up to ten further stored results from the same scan. It requires in-stock products and deterministically prefers margin grades A/B (using grade C only when few stronger matches exist). The displayed expected margin is an estimate derived from the public market price and margin grade, not a supplier quote. Responses contain only public-safe catalogue fields; they never expose supplier identities, costs, exact margins, or private matching data.
+
+### Private handoff contract
+
+The API sends a server-to-server JSON request to `EANRUNNER_OPPORTUNITY_API_URL` with a Bearer token and `Idempotency-Key`. The payload includes `scanId`, normalized shop URL, inferred market, selected EANs, contact details, and a consent timestamp. The private EANrunner service must resolve selected EANs to suppliers and accept `POST` requests with those fields. A missing, rejected, or timed-out private handoff returns a truthful error to the retailer; the browser never receives the private URL, token, or supplier information.
+
+Known MVP limits: scans are intentionally partial, a result is not a full assortment audit, market/category signals are estimates, and the retailer must configure the private handoff before introduction requests can succeed.
 
 ## Notes
 

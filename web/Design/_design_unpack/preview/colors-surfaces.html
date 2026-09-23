@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px; }
+  .stack { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .row {
+    display: grid;
+    grid-template-columns: 88px 1fr 110px 240px;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid hsl(var(--border));
+  }
+  .sw { width: 64px; height: 36px; border-radius: 6px; border: 1px solid hsl(var(--border)); }
+  .name { font: var(--type-body-strong); }
+  .role { font: var(--type-xs); color: hsl(var(--muted-foreground)); }
+  .hex  { font: var(--type-mono); font-size: 12px; }
+</style>
+</head><body>
+  <div class="stack">
+    <div class="row">
+      <div class="sw" style="background:#F3F5F9; border:1px solid hsl(var(--border))"></div>
+      <div><div class="name">background</div><div class="role">page chrome — cool tinted off-white</div></div>
+      <div class="hex">#F3F5F9</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(220 18% 97%)</div>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#FFFFFF"></div>
+      <div><div class="name">card</div><div class="role">elevated surface · all content sits here</div></div>
+      <div class="hex">#FFFFFF</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(0 0% 100%)</div>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#EAECF1"></div>
+      <div><div class="name">muted</div><div class="role">quiet surface · progress track, disabled chips</div></div>
+      <div class="hex">#EAECF1</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(220 14% 93%)</div>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#DDE0E7"></div>
+      <div><div class="name">border</div><div class="role">1px hairlines · half-strength as /40</div></div>
+      <div class="hex">#DDE0E7</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(220 14% 89%)</div>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#5A6178"></div>
+      <div><div class="name" style="color:#fff">muted-foreground</div><div class="role">secondary text · labels, captions, eyebrows</div></div>
+      <div class="hex">#5A6178</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(220 12% 40%)</div>
+    </div>
+    <div class="row">
+      <div class="sw" style="background:#0C1228"></div>
+      <div><div class="name">foreground</div><div class="role">primary body text · near-black</div></div>
+      <div class="hex">#0C1228</div>
+      <div class="mono" style="font-size:11px;color:hsl(var(--muted-foreground))">hsl(222 47% 8%)</div>
+    </div>
+  </div>
+</body></html>

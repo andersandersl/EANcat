@@ -1,0 +1,231 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 16px; background: #fff; }
+  .header { margin-bottom: 14px; }
+  .title { font: 600 13px "Inter"; }
+  .sub { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); }
+
+  .opt {
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+  .opt-name { font: 600 13px "Inter"; }
+  .opt-meta { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+  .opt-tag {
+    font: 600 9px "Inter"; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px;
+    background: hsl(var(--accent)); color: hsl(var(--accent-foreground));
+    display: inline-block; margin-top: 6px;
+  }
+  .row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  /* shared button base */
+  .b {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    font: 600 13px "Inter";
+    cursor: pointer; user-select: none;
+    border: 1px solid transparent;
+    background: transparent;
+    transition: transform 80ms ease, box-shadow 120ms ease, background 120ms ease;
+  }
+  .b-sm { height: 26px; padding: 0 10px; font-size: 12px; }
+  .b:active { transform: translateY(0.5px); }
+  .ico { width: 12px; height: 12px; }
+
+  /* ────────────────────────────────────────────────────────────────
+     A · CURRENT — soft shadcn (default)
+     ──────────────────────────────────────────────────────────────── */
+  .A .b { border-radius: 8px; font-weight: 500; }
+  .A .b-prim { background: #1A5EFF; color: #fff; }
+  .A .b-prim:hover { background: #1850E0; }
+  .A .b-out  { background: #fff; color: #0C1228; border-color: #DDE0E7; }
+  .A .b-out:hover { background: #E5EDFF66; }
+  .A .b-ghost { background: transparent; color: #0C1228; }
+  .A .b-ghost:hover { background: #E5EDFF66; }
+  .A .b-des  { background: #EF4444; color: #fff; }
+
+  /* ────────────────────────────────────────────────────────────────
+     B · STAMPED — layered drop-shadow (Linear-style)
+     ──────────────────────────────────────────────────────────────── */
+  .B .b { border-radius: 8px; font-weight: 600; height: 32px; }
+  .B .b-prim {
+    background: linear-gradient(180deg, #2E73FF 0%, #1A5EFF 100%);
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255,255,255,0.18),
+      0 1px 0 0 rgba(12,18,40,0.18),
+      0 1px 2px 0 rgba(26,94,255,0.4);
+  }
+  .B .b-prim:hover {
+    background: linear-gradient(180deg, #4488FF 0%, #1A5EFF 100%);
+  }
+  .B .b-out {
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FC 100%);
+    color: #0C1228;
+    border-color: #D5D9E0;
+    box-shadow: 0 1px 0 0 rgba(12,18,40,0.04), inset 0 1px 0 0 #fff;
+  }
+  .B .b-out:hover { background: linear-gradient(180deg, #FAFBFE 0%, #F1F3F8 100%); }
+  .B .b-ghost { background: transparent; color: #0C1228; font-weight: 500; }
+  .B .b-ghost:hover { background: #EAECF1; }
+  .B .b-des {
+    background: linear-gradient(180deg, #F46065 0%, #EF4444 100%);
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255,255,255,0.16),
+      0 1px 0 0 rgba(120,20,30,0.18),
+      0 1px 2px 0 rgba(239,68,68,0.35);
+  }
+
+  /* ────────────────────────────────────────────────────────────────
+     C · CHISELED — hard 1px bottom border, no rounded radius
+     Smart for dense ops tools; reads precise + technical
+     ──────────────────────────────────────────────────────────────── */
+  .C .b { border-radius: 4px; font-weight: 600; letter-spacing: -0.005em; }
+  .C .b-prim {
+    background: #1A5EFF; color: #fff;
+    box-shadow: inset 0 -1px 0 0 rgba(0,0,0,0.16);
+  }
+  .C .b-prim:hover { background: #154FE0; }
+  .C .b-out {
+    background: #fff; color: #0C1228; border-color: #C8CDD8;
+    box-shadow: inset 0 -1px 0 0 rgba(12,18,40,0.05);
+  }
+  .C .b-out:hover { background: #F3F5F9; }
+  .C .b-ghost { background: transparent; color: #2049A8; font-weight: 600; }
+  .C .b-ghost:hover { background: #E5EDFF; color: #1A5EFF; }
+  .C .b-des  { background: #EF4444; color: #fff; box-shadow: inset 0 -1px 0 0 rgba(0,0,0,0.18); }
+
+  /* ────────────────────────────────────────────────────────────────
+     D · MONO — flat black-on-white, GitHub-Primer feel
+     ──────────────────────────────────────────────────────────────── */
+  .D .b { border-radius: 6px; font-weight: 500; }
+  .D .b-prim {
+    background: #0F172A; color: #fff;
+    box-shadow: 0 0 0 1px #0F172A, 0 1px 2px 0 rgba(0,0,0,0.1);
+  }
+  .D .b-prim:hover { background: #1E293B; }
+  .D .b-out {
+    background: #F7F8FA; color: #0F172A; border-color: #D5D9E0;
+  }
+  .D .b-out:hover { background: #EFF1F5; border-color: #BCC2CE; }
+  .D .b-ghost { background: transparent; color: #0F172A; }
+  .D .b-ghost:hover { background: #EFF1F5; }
+  .D .b-des {
+    background: #fff; color: #BE123C; border-color: #FECACA;
+    box-shadow: 0 1px 2px 0 rgba(190,18,60,0.08);
+  }
+  .D .b-des:hover { background: #FFF1F2; border-color: #FCA5A5; }
+
+  /* ────────────────────────────────────────────────────────────────
+     E · KEYCAP — chunky 3D top, drops shadow on press
+     A bit playful; would feel out of place at scale
+     ──────────────────────────────────────────────────────────────── */
+  .E .b { border-radius: 8px; font-weight: 600; height: 34px; transform: translateY(0); }
+  .E .b-prim {
+    background: #1A5EFF; color: #fff;
+    box-shadow:
+      inset 0 -3px 0 0 #1244BD,
+      0 2px 4px 0 rgba(26,94,255,0.3);
+  }
+  .E .b-prim:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 0 #1244BD, 0 0 0 0 transparent; }
+  .E .b-out {
+    background: #fff; color: #0C1228; border-color: #DDE0E7;
+    box-shadow: inset 0 -3px 0 0 #E2E5EC;
+  }
+  .E .b-out:active { transform: translateY(2px); box-shadow: inset 0 -1px 0 0 #E2E5EC; }
+  .E .b-ghost { background: transparent; color: #0C1228; font-weight: 500; }
+  .E .b-ghost:hover { background: #E5EDFF66; }
+  .E .b-des  {
+    background: #EF4444; color: #fff;
+    box-shadow: inset 0 -3px 0 0 #B91C2C, 0 2px 4px 0 rgba(239,68,68,0.25);
+  }
+</style>
+</head><body>
+  <div class="header">
+    <div class="title">Buttons — exploring directions</div>
+    <div class="sub">all preserve the variant set (primary · outline · ghost · destructive) · same density · pick one</div>
+  </div>
+
+  <div class="opt A">
+    <div>
+      <div class="opt-name">A · Flat</div>
+      <div class="opt-meta">shadcn default · no shadow · 8px radius</div>
+      <span class="opt-tag">CURRENT</span>
+    </div>
+    <div class="row">
+      <button class="b b-prim">Add to feed</button>
+      <button class="b b-out">Refresh all margins</button>
+      <button class="b b-ghost">Clear all</button>
+      <button class="b b-des">Cancel</button>
+    </div>
+  </div>
+
+  <div class="opt B">
+    <div>
+      <div class="opt-name">B · Stamped</div>
+      <div class="opt-meta">layered top-highlight + bottom-shadow · Linear / Stripe</div>
+    </div>
+    <div class="row">
+      <button class="b b-prim">Add to feed</button>
+      <button class="b b-out">Refresh all margins</button>
+      <button class="b b-ghost">Clear all</button>
+      <button class="b b-des">Cancel</button>
+    </div>
+  </div>
+
+  <div class="opt C">
+    <div>
+      <div class="opt-name">C · Chiseled</div>
+      <div class="opt-meta">tight 4px radius · inset bottom edge · precise / technical</div>
+    </div>
+    <div class="row">
+      <button class="b b-prim">Add to feed</button>
+      <button class="b b-out">Refresh all margins</button>
+      <button class="b b-ghost">Clear all</button>
+      <button class="b b-des">Cancel</button>
+    </div>
+  </div>
+
+  <div class="opt D">
+    <div>
+      <div class="opt-name">D · Mono</div>
+      <div class="opt-meta">black primary · soft destructive · GitHub Primer feel</div>
+    </div>
+    <div class="row">
+      <button class="b b-prim">Add to feed</button>
+      <button class="b b-out">Refresh all margins</button>
+      <button class="b b-ghost">Clear all</button>
+      <button class="b b-des">Cancel</button>
+    </div>
+  </div>
+
+  <div class="opt E">
+    <div>
+      <div class="opt-name">E · Keycap</div>
+      <div class="opt-meta">3D bottom edge · press depresses · playful · risk: out of place at scale</div>
+    </div>
+    <div class="row">
+      <button class="b b-prim">Add to feed</button>
+      <button class="b b-out">Refresh all margins</button>
+      <button class="b b-ghost">Clear all</button>
+      <button class="b b-des">Cancel</button>
+    </div>
+  </div>
+
+  <div style="font:400 11px Inter;color:hsl(var(--muted-foreground));margin-top:6px">
+    My recommendation: <strong style="color:#0C1228">B (Stamped)</strong> — keeps the cobalt brand front and centre, adds enough depth to feel deliberate, and still scales across dense tables.
+  </div>
+</body></html>

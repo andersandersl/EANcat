@@ -1,0 +1,92 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .lbl { font: 500 13px "Inter"; color: hsl(var(--foreground)); }
+  .input {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #DDE0E7;
+    background: #fff;
+    font: 400 14px "Inter";
+    color: #0C1228;
+    outline: none;
+  }
+  .input:focus { border-color: #1A5EFF; box-shadow: 0 0 0 2px #1A5EFF33; }
+  .input::placeholder { color: hsl(var(--muted-foreground)); }
+  .input-sm { height: 28px; font-size: 12px; padding: 0 10px; }
+  .help { font: 400 12px "Inter"; color: hsl(var(--muted-foreground)); }
+
+  .toggle-group {
+    display: inline-flex;
+    border: 1px solid #DDE0E7;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 32px;
+  }
+  .toggle-group button {
+    border: 0; background: transparent; cursor: pointer;
+    height: 100%; padding: 0 12px;
+    font: 600 12px "Inter";
+    color: hsl(var(--muted-foreground));
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-right: 1px solid #DDE0E7;
+  }
+  .toggle-group button:last-child { border-right: 0; }
+  .toggle-group button.on { background: #1A5EFF; color: #fff; }
+
+  .switch {
+    width: 36px; height: 20px; border-radius: 9999px;
+    background: #1A5EFF; position: relative;
+    display: inline-block;
+  }
+  .switch::after {
+    content: ""; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; position: absolute; top: 2px; left: 18px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  }
+  .switch.off { background: #EAECF1; }
+  .switch.off::after { left: 2px; }
+  .switch-row { display: flex; align-items: center; gap: 8px; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="field">
+      <span class="lbl">Exact EAN</span>
+      <input class="input" placeholder="e.g. 4013288234186" />
+    </div>
+    <div class="field">
+      <span class="lbl">Keyword</span>
+      <input class="input" value="logitech mx" />
+    </div>
+    <div class="field">
+      <span class="lbl">SE margin ≥ %</span>
+      <input class="input" placeholder="e.g. 20" />
+    </div>
+    <div class="field">
+      <span class="lbl">Market</span>
+      <div class="toggle-group">
+        <button>DK</button>
+        <button class="on">SE</button>
+        <button>FI</button>
+      </div>
+    </div>
+    <div class="field" style="grid-column: 1 / -1">
+      <span class="lbl">Search facet · scoped</span>
+      <input class="input input-sm" type="search" placeholder="Search brand…" />
+    </div>
+    <div class="switch-row">
+      <span class="switch"></span>
+      <span class="lbl">In stock only</span>
+    </div>
+    <div class="switch-row">
+      <span class="switch off"></span>
+      <span class="lbl">With image</span>
+    </div>
+  </div>
+</body></html>

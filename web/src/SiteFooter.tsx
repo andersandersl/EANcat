@@ -30,6 +30,7 @@ export default function SiteFooter({ className = 'mt-10' }: SiteFooterProps) {
             <div className="flex flex-col gap-1 text-[12px]">
               <Link to="/for-retailers" className="text-[hsl(221_92%_42%)] hover:underline">For Retailers</Link>
               <Link to="/for-distributors" className="text-[hsl(221_92%_42%)] hover:underline">For Distributors</Link>
+              <Link to="/pricing" className="text-[hsl(221_92%_42%)] hover:underline">Pricing</Link>
               <Link to="/about-us" className="text-[hsl(221_92%_42%)] hover:underline">About us</Link>
               <Link to="/how-it-works" className="text-[hsl(221_92%_42%)] hover:underline">How it works</Link>
               <Link to="/work-with-us" className="text-[hsl(221_92%_42%)] hover:underline">Small team. Big network.</Link>
@@ -71,7 +72,7 @@ export default function SiteFooter({ className = 'mt-10' }: SiteFooterProps) {
                   WooCommerce
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-md border border-[hsl(220_16%_84%)] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[hsl(222_47%_18%)]">
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-[4px] bg-[hsl(221_92%_55%)] text-[9px] font-bold text-white">QB</span>
+                  <img src="/marketing/logos/quickbutik.svg" alt="Quickbutik" className="h-4 w-4 object-contain" />
                   Quickbutik
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-md border border-[hsl(220_16%_84%)] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[hsl(222_47%_18%)]">

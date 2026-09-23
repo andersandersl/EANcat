@@ -4,6 +4,17 @@ import express from 'express';
 import type { Server } from 'node:http';
 import sql from 'mssql';
 import { z } from 'zod';
+import {
+  OpportunityError,
+  combineCategoryOpportunities,
+  createIdempotencyKey,
+  findScan,
+  matchCategories,
+  normalizeEan,
+  rankOpportunities,
+  scanShop,
+  storeScan,
+} from './opportunity.js';
 
 dotenv.config();
 
@@ -16,9 +27,11 @@ const WEB_ORIGIN = process.env.WEB_ORIGIN || 'http://localhost:5173,http://local
 const WEB_ORIGINS = WEB_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
 const PUBLIC_RATE_LIMIT_WINDOW_MS = 60_000;
 const PUBLIC_RATE_LIMIT_MAX_REQUESTS = 120;
+const OPPORTUNITY_PAGE_SIZE = 10;
+const MAX_STORED_OPPORTUNITIES = 20;
 const BRAND_CLUSTER_CACHE_TTL_MS = Number.parseInt(process.env.BRAND_CLUSTER_CACHE_TTL_MS || String(10 * 60 * 1000), 10);
 const BRAND_CLUSTER_CACHE_MAX_ENTRIES = Number.parseInt(process.env.BRAND_CLUSTER_CACHE_MAX_ENTRIES || '200', 10);
-const SQL_AUTH_MODE = (process.env.SQL_AUTH_MODE || 'sql-password').trim().toLowerCase();
+const SQL_AUTH_MODE = (process.env.SQL_AUTH_MODE || 'entra-default').trim().toLowerCase();
 const SQL_USE_ENTRA_DEFAULT = SQL_AUTH_MODE === 'entra-default';
 
 // Connects to the ISOLATED public showcase DB (eanrunner-catalog-db), NOT
@@ -133,6 +146,8 @@ const searchQuerySchema = z.object({
   brand: z.string().trim().max(5000).optional(),
   market: z.enum(['dk', 'se', 'fi']).optional(),
   grades: z.string().trim().max(40).optional(), // comma-separated e.g. "A,B,C"
+  competition: z.string().trim().max(20).optional(), // comma-separated levels 0,1,2,3
+  includeTotal: z.enum(['true', 'false']).optional(),
   inStock: z.enum(['true', 'false']).optional(),
   hasImage: z.enum(['true', 'false']).optional(),
 });
@@ -166,6 +181,28 @@ const suggestQuerySchema = z.object({
 });
 
 const eanParamSchema = z.object({ market: z.enum(['dk', 'se', 'fi']).optional() });
+
+const opportunityScanSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+});
+
+const opportunityScanPageSchema = z.object({
+  offset: z.coerce.number().int().min(0).max(MAX_STORED_OPPORTUNITIES).default(0),
+});
+
+const supplierConnectionSchema = z.object({
+  scanId: z.string().uuid(),
+  shopUrl: z.string().trim().min(1).max(2048),
+  market: z.enum(['DK', 'SE', 'FI']),
+  selectedEans: z.array(z.string().trim().min(8).max(14)).min(1).max(MAX_STORED_OPPORTUNITIES),
+  contact: z.object({
+    name: z.string().trim().min(1).max(120),
+    email: z.string().trim().email().max(254),
+    company: z.string().trim().min(1).max(160),
+    phone: z.string().trim().max(40).optional(),
+  }),
+  consent: z.literal(true),
+});
 
 // ── Column-mapping seam (the ONLY place that knows the physical schema) ───────
 // `market` always comes from a z.enum closed set, so interpolating the suffix
@@ -240,6 +277,15 @@ function activeGradesFrom(value: string | undefined): string[] {
     .filter((g) => ALLOWED_GRADES.has(g));
 }
 
+function activeCompetitionLevelsFrom(value: string | undefined): number[] {
+  return [...new Set(
+    (value || '')
+      .split(',')
+      .map((level) => Number.parseInt(level.trim(), 10))
+      .filter((level) => Number.isInteger(level) && level >= 0 && level <= 3),
+  )].sort((a, b) => a - b);
+}
+
 // ── Rate limiting + CORS helpers ──────────────────────────────────────────────
 
 const rateLimitByIp = new Map<string, { count: number; resetAt: number }>();
@@ -255,6 +301,20 @@ function enforcePublicRateLimit(ip: string, now: number): { limited: boolean; re
   }
   current.count += 1;
   return { limited: false, retryAfter: 0 };
+}
+
+const opportunityRateByIp = new Map<string, { scans: number; connections: number; resetAt: number }>();
+
+function enforceOpportunityRateLimit(ip: string, action: 'scan' | 'connection'): number {
+  const now = Date.now();
+  const current = opportunityRateByIp.get(ip);
+  const entry = !current || now >= current.resetAt
+    ? { scans: 0, connections: 0, resetAt: now + 15 * 60 * 1000 }
+    : current;
+  entry[action === 'scan' ? 'scans' : 'connections'] += 1;
+  opportunityRateByIp.set(ip, entry);
+  const count = action === 'scan' ? entry.scans : entry.connections;
+  return count <= 10 ? 0 : Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
 }
 
 function isLocalhostOrigin(origin: string): boolean {
@@ -431,11 +491,13 @@ async function main(): Promise<void> {
     const limit = parsed.data.limit ?? 48;
     const page = parsed.data.page ?? 1;
     const offset = (page - 1) * limit;
+    const includeTotal = parsed.data.includeTotal !== 'false';
 
     const rawQuery = normalizeQueryToken(parsed.data.query || '');
     const categoryValues = splitCsv(parsed.data.category);
     const brandValues = splitCsv(parsed.data.brand);
     const activeGrades = activeGradesFrom(parsed.data.grades);
+    const activeCompetitionLevels = activeCompetitionLevelsFrom(parsed.data.competition);
 
     try {
       const pool = await getPool();
@@ -461,6 +523,18 @@ async function main(): Promise<void> {
           const inList = activeGrades.map((g) => `'${g}'`).join(',');
           conditions.push(`${m.grade} IN (${inList})`);
         }
+        if (activeCompetitionLevels.length > 0) {
+          // Safe: values are clamped to 0..3 only.
+          const inList = activeCompetitionLevels.join(',');
+          conditions.push(`
+            CASE
+              WHEN COALESCE(${m.competitors}, 0) <= 0 THEN 0
+              WHEN ${m.competitors} = 1 THEN 1
+              WHEN ${m.competitors} <= 3 THEN 2
+              ELSE 3
+            END IN (${inList})
+          `);
+        }
         return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       };
 
@@ -468,9 +542,6 @@ async function main(): Promise<void> {
       dataRequest.input('limit', sql.Int, limit);
       dataRequest.input('offset', sql.Int, offset);
       const whereClause = buildWhere(dataRequest);
-
-      const countRequest = pool.request();
-      buildWhere(countRequest); // rebind same params on the count request
 
       const shouldPrioritizeImages = brandValues.length > 0 && parsed.data.hasImage !== 'true';
       const orderByClause = shouldPrioritizeImages
@@ -482,19 +553,24 @@ async function main(): Promise<void> {
                  CASE WHEN ${m.grade} = 'N/A' THEN 1 ELSE 0 END,
                  synced_at DESC, ean ASC`;
 
-      const [dataResult, countResult] = await Promise.all([
-        dataRequest.query(`
-          SELECT ${productSelectColumns(m)}
-          FROM dbo.showcase_product
-          ${whereClause}
-          ${orderByClause}
-          OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
-        `),
-        countRequest.query(`SELECT COUNT(*) AS total FROM dbo.showcase_product ${whereClause}`),
-      ]);
+      const dataResult = await dataRequest.query(`
+        SELECT ${productSelectColumns(m)}
+        FROM dbo.showcase_product
+        ${whereClause}
+        ${orderByClause}
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+      `);
+
+      let total: number | null = null;
+      if (includeTotal) {
+        const countRequest = pool.request();
+        buildWhere(countRequest); // rebind same params on the count request
+        const countResult = await countRequest.query(`SELECT COUNT(*) AS total FROM dbo.showcase_product ${whereClause}`);
+        total = countResult.recordset[0]?.total ?? 0;
+      }
 
       const products = (dataResult.recordset as ShowcaseRow[]).map(mapRow);
-      res.json({ products, count: products.length, total: countResult.recordset[0]?.total ?? 0 });
+      res.json({ products, count: products.length, total });
     } catch (err) {
       console.error('Error fetching products', err);
       res.status(500).json({ error: 'Internal server error' });
@@ -583,8 +659,18 @@ async function main(): Promise<void> {
         WITH ${filteredCte(countWhere)},
         graded AS ( SELECT * FROM filtered_products ${gradeWhereClause} ),
         preview AS ( SELECT * FROM graded ${previewWhereSql} ),
+        quality_brand_counts AS (
+          SELECT brand, COUNT(*) AS quality_product_count
+          FROM preview
+          WHERE has_image = 1 AND margin_grade IN ('A', 'B', 'C', 'D')
+          GROUP BY brand
+        ),
         eligible_brands AS (
-          SELECT brand FROM preview GROUP BY brand HAVING COUNT(*) >= @minBrandProducts
+          SELECT p.brand
+          FROM preview p
+          INNER JOIN quality_brand_counts qbc ON qbc.brand = p.brand
+          GROUP BY p.brand, qbc.quality_product_count
+          HAVING COUNT(*) >= @minBrandProducts AND qbc.quality_product_count >= @minBrandProducts
         )
         SELECT COUNT(*) AS totalProducts, COUNT(DISTINCT p.brand) AS totalBrands
         FROM preview p INNER JOIN eligible_brands eb ON eb.brand = p.brand
@@ -608,9 +694,21 @@ async function main(): Promise<void> {
           GROUP BY brand
         ),
         preview AS ( SELECT * FROM graded ${previewWhereSql} ),
+        quality_brand_counts AS (
+          SELECT brand, COUNT(*) AS quality_product_count
+          FROM preview
+          WHERE has_image = 1 AND margin_grade IN ('A', 'B', 'C', 'D')
+          GROUP BY brand
+        ),
         ranked AS (
           SELECT p.*,
-            ROW_NUMBER() OVER (PARTITION BY p.brand ORDER BY p.updated_at DESC, p.ean ASC) AS brand_item_rank,
+            ROW_NUMBER() OVER (
+              PARTITION BY p.brand
+              ORDER BY
+                CASE WHEN p.margin_grade IN ('E', 'F') THEN 1 ELSE 0 END ASC,
+                p.updated_at DESC,
+                p.ean ASC
+            ) AS brand_item_rank,
             MAX(p.updated_at) OVER (PARTITION BY p.brand) AS brand_latest_added,
             COUNT(*) OVER (PARTITION BY p.brand) AS brand_preview_count
           FROM preview p
@@ -619,7 +717,9 @@ async function main(): Promise<void> {
           SELECT DISTINCT r.brand, r.brand_latest_added, r.brand_preview_count,
             DENSE_RANK() OVER (ORDER BY r.brand_latest_added DESC, r.brand ASC) AS brand_rank
           FROM ranked r
+          INNER JOIN quality_brand_counts qbc ON qbc.brand = r.brand
           WHERE r.brand_preview_count >= @minBrandProducts
+            AND qbc.quality_product_count >= @minBrandProducts
         ),
         selected_brands AS (
           SELECT rb.brand, rb.brand_latest_added, bt.brand_total_count
@@ -943,6 +1043,206 @@ async function main(): Promise<void> {
     } catch (err) {
       console.error('Error fetching suggestions', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // ── POST /api/public/opportunity-scan ───────────────────────────────────────────
+  app.post('/api/public/opportunity-scan', async (req, res) => {
+    const parsed = opportunityScanSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ code: 'INVALID_URL', error: 'Enter a valid webshop URL.' });
+      return;
+    }
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const retryAfter = enforceOpportunityRateLimit(ip, 'scan');
+    if (retryAfter) {
+      res.setHeader('Retry-After', String(retryAfter));
+      res.status(429).json({ code: 'RATE_LIMITED', error: 'Too many scan requests. Please try again shortly.' });
+      return;
+    }
+
+    console.info('[OpportunityFinder] scan requested');
+    let scanCompleted = false;
+    try {
+      const signals = await scanShop(parsed.data.url);
+      scanCompleted = true;
+      const pool = await getPool();
+      const categoryResult = await pool.request().query<{ category: string }>(`
+        SELECT DISTINCT LTRIM(RTRIM(category)) AS category
+        FROM dbo.showcase_product
+        WHERE category IS NOT NULL AND LTRIM(RTRIM(category)) <> ''
+        ORDER BY LTRIM(RTRIM(category)) ASC
+      `);
+      const catalogCategories = categoryResult.recordset.map((row) => row.category);
+      const primaryCategoryMatches = matchCategories(signals.categories, catalogCategories);
+      const secondaryCategoryMatches = matchCategories(signals.categories, catalogCategories, 0.25, 24)
+        .filter((match) => !primaryCategoryMatches.some((primary) => primary.catalogCategory === match.catalogCategory));
+      const orderedCategoryMatches = [...primaryCategoryMatches, ...secondaryCategoryMatches];
+      const market = signals.market as Market;
+      const columns = marketColumns(market);
+
+      const loadCandidates = async (categoryMatches: ReturnType<typeof matchCategories>) => {
+        const candidateRequest = pool.request();
+        const conditions = [
+          'title IS NOT NULL',
+          "LTRIM(RTRIM(title)) <> ''",
+          'has_image = 1',
+          `${columns.inStock} = 1`,
+          `${columns.grade} IN ('A', 'B', 'C')`,
+        ];
+        if (categoryMatches.length > 0) {
+          const placeholders = categoryMatches.map((match, index) => {
+            const name = `opportunityCategory${index}`;
+            candidateRequest.input(name, sql.NVarChar(500), match.catalogCategory);
+            return `@${name}`;
+          });
+          conditions.push(`category IN (${placeholders.join(', ')})`);
+        }
+        const candidateResult = await candidateRequest.query<ShowcaseRow>(`
+          SELECT TOP (240) ${productSelectColumns(columns)}
+          FROM dbo.showcase_product
+          WHERE ${conditions.join(' AND ')}
+          ORDER BY CASE WHEN ${columns.inStock} = 1 THEN 0 ELSE 1 END, ean ASC
+        `);
+        return candidateResult.recordset.map(mapRow).map(({ updatedAt: _updatedAt, ...product }) => product);
+      };
+
+      const categoryMatches: ReturnType<typeof matchCategories> = [];
+      let opportunities: ReturnType<typeof rankOpportunities> = [];
+      for (const categoryMatch of orderedCategoryMatches) {
+        if (opportunities.length >= MAX_STORED_OPPORTUNITIES) break;
+        const categoryOpportunities = rankOpportunities(await loadCandidates([categoryMatch]), signals, [categoryMatch]);
+        const hadInitialPage = opportunities.length >= OPPORTUNITY_PAGE_SIZE;
+        opportunities = combineCategoryOpportunities(
+          opportunities,
+          categoryOpportunities,
+          MAX_STORED_OPPORTUNITIES,
+          MAX_STORED_OPPORTUNITIES,
+        );
+        if (!hadInitialPage) categoryMatches.push(categoryMatch);
+      }
+      const stored = storeScan(signals, opportunities);
+      const initialOpportunities = opportunities.slice(0, OPPORTUNITY_PAGE_SIZE);
+      console.info('[OpportunityFinder] scan completed', {
+        domain: signals.domain,
+        pagesScanned: signals.pagesScanned,
+        opportunities: opportunities.length,
+        partial: signals.warnings.length > 0,
+      });
+      res.json({
+        scanId: stored.id,
+        shop: { url: signals.url, domain: signals.domain },
+        market: { code: signals.market.toUpperCase(), confidence: signals.marketConfidence },
+        detectedCategories: categoryMatches,
+        detectedBrands: signals.brands,
+        detectedEanCount: signals.eans.length,
+        coverage: { pagesScanned: signals.pagesScanned, isPartial: signals.warnings.length > 0, warnings: signals.warnings },
+        opportunities: initialOpportunities,
+        hasMore: opportunities.length > initialOpportunities.length,
+      });
+    } catch (error) {
+      const known = error instanceof OpportunityError ? error : null;
+      const code = known?.code ?? (scanCompleted ? 'CATALOG_UNAVAILABLE' : 'SCAN_FAILED');
+      const message = known?.message ?? (scanCompleted
+        ? 'The opportunity catalogue is temporarily unavailable. Please try again shortly.'
+        : 'The webshop could not be scanned. Please try again.');
+      console.warn('[OpportunityFinder] scan failed', { code });
+      const status = code === 'INVALID_URL' || code === 'UNSAFE_URL' ? 400 : code === 'SCAN_BLOCKED' ? 422 : code === 'CATALOG_UNAVAILABLE' ? 503 : 502;
+      res.status(status).json({ code, error: message });
+    }
+  });
+
+  // ── GET /api/public/opportunity-scan/:scanId ─────────────────────────────────
+  app.get('/api/public/opportunity-scan/:scanId', (req, res) => {
+    const parsed = opportunityScanPageSchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'The results page is invalid.' });
+      return;
+    }
+
+    const stored = findScan(req.params.scanId);
+    if (!stored) {
+      res.status(404).json({ code: 'SCAN_EXPIRED', error: 'This scan has expired. Please scan the webshop again.' });
+      return;
+    }
+
+    const opportunities = stored.opportunities.slice(parsed.data.offset, parsed.data.offset + OPPORTUNITY_PAGE_SIZE);
+    res.json({
+      opportunities,
+      hasMore: parsed.data.offset + opportunities.length < stored.opportunities.length,
+    });
+  });
+
+  // ── POST /api/public/supplier-connection ───────────────────────────────────────
+  app.post('/api/public/supplier-connection', async (req, res) => {
+    const parsed = supplierConnectionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'Complete the required contact details and consent before continuing.' });
+      return;
+    }
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const retryAfter = enforceOpportunityRateLimit(ip, 'connection');
+    if (retryAfter) {
+      res.setHeader('Retry-After', String(retryAfter));
+      res.status(429).json({ code: 'RATE_LIMITED', error: 'Too many connection requests. Please try again shortly.' });
+      return;
+    }
+
+    const scan = findScan(parsed.data.scanId);
+    const selectedEans = [...new Set(parsed.data.selectedEans.map(normalizeEan).filter((ean): ean is string => Boolean(ean)))];
+    if (!scan || selectedEans.length !== parsed.data.selectedEans.length) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'This scan has expired or the selected products are invalid. Please scan your shop again.' });
+      return;
+    }
+    if (scan.market.toUpperCase() !== parsed.data.market) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'The selected market does not match this scan. Please scan your shop again.' });
+      return;
+    }
+    if (!selectedEans.every((ean) => scan.opportunityEans.includes(ean))) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'Choose products from the current scan before requesting an introduction.' });
+      return;
+    }
+
+    const handoffUrl = process.env.EANRUNNER_OPPORTUNITY_API_URL;
+    const handoffToken = process.env.EANRUNNER_OPPORTUNITY_API_TOKEN;
+    if (!handoffUrl || !handoffToken) {
+      console.warn('[OpportunityFinder] private handoff unavailable');
+      res.status(503).json({ code: 'HANDOFF_UNAVAILABLE', error: 'Supplier introductions are temporarily unavailable. Please try again later.' });
+      return;
+    }
+
+    const idempotencyKey = createIdempotencyKey(scan.id, selectedEans, parsed.data.contact.email);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6_000);
+    console.info('[OpportunityFinder] connection request received', { scanId: scan.id, products: selectedEans.length });
+    try {
+      const handoff = await fetch(handoffUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${handoffToken}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          scanId: scan.id,
+          shopUrl: scan.url,
+          market: scan.market.toUpperCase(),
+          selectedEans,
+          contact: parsed.data.contact,
+          consent: { granted: true, timestamp: new Date().toISOString() },
+        }),
+      });
+      if (!handoff.ok && handoff.status !== 409) {
+        throw new Error(`Private handoff returned ${handoff.status}`);
+      }
+      console.info('[OpportunityFinder] private handoff succeeded', { scanId: scan.id });
+      res.status(202).json({ requestId: idempotencyKey.slice(0, 16), status: 'accepted' });
+    } catch {
+      console.warn('[OpportunityFinder] private handoff failed', { scanId: scan.id });
+      res.status(502).json({ code: 'HANDOFF_FAILED', error: 'We could not send your introduction request. Your selected products are still available below; please try again.' });
+    } finally {
+      clearTimeout(timeout);
     }
   });
 

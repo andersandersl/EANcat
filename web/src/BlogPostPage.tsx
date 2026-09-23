@@ -9,8 +9,8 @@ export default function BlogPostPage() {
   const post = slug ? getBlogPostBySlug(slug) : undefined;
 
   useDocumentMeta({
-    title: post ? post.title : 'Blog',
-    description: post ? post.summary : 'Read the latest updates from EANrunner.',
+    title: post ? post.title : 'Blog Post',
+    description: post ? post.summary : 'Read the latest EANrunner news, launches, and ecommerce insights.',
     path: post ? `/blog/${post.slug}` : '/blog',
   });
 

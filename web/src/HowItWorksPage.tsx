@@ -1,37 +1,8 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import PageTopBar from './PageTopBar';
 import SiteFooter from './SiteFooter';
 import { useDocumentMeta } from './useDocumentMeta';
-
-type FaqItem = {
-  question: string;
-  answer: string;
-};
-
-const FAQ_ITEMS: FaqItem[] = [
-  {
-    question: 'What is EANrunner?',
-    answer:
-      'EANrunner connects distributors, brands, and retailers through structured product data, automation, and AI workflows.',
-  },
-  {
-    question: 'How does pricing work?',
-    answer:
-      'There are no upfront platform fees for retailers. The model is designed to keep onboarding and expansion simple and commercially aligned.',
-  },
-  {
-    question: 'Which platforms can you connect to?',
-    answer:
-      'We support custom integrations and common commerce stacks, including Shopify, WooCommerce, Magento, and additional partner setups.',
-  },
-  {
-    question: 'Which markets are supported?',
-    answer:
-      'EANrunner is built for European supplier and retailer collaboration, with current activity across Nordic and nearby EU markets.',
-  },
-];
 
 const STEPS = [
   {
@@ -54,13 +25,11 @@ const STEPS = [
 
 export default function HowItWorksPage() {
   useDocumentMeta({
-    title: 'How it works',
+    title: 'How EANrunner Works',
     description:
-      'How EANrunner works: connect suppliers, find high-margin products with local price data, and push them live to your shop with daily stock and pricing sync.',
+      'See how EANrunner turns supplier data into live retail catalogs with product enrichment, integrations, and automated stock and price syncing.',
     path: '/how-it-works',
   });
-
-  const [openIndex, setOpenIndex] = useState<number>(0);
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,hsl(210_40%_98%),hsl(220_22%_96%))] text-[hsl(222_47%_12%)]">
@@ -93,38 +62,6 @@ export default function HowItWorksPage() {
                 <p className="mt-2 text-sm leading-6 text-[hsl(220_12%_34%)]">{step.text}</p>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="mt-6 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <div>
-            <h2 className="text-[32px] font-bold leading-tight">Frequently asked questions</h2>
-            <p className="mt-3 text-[16px] text-[hsl(220_14%_34%)]">
-              Quick answers about onboarding, integrations, and how the platform operates.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {FAQ_ITEMS.map((item, idx) => {
-              const open = openIndex === idx;
-              return (
-                <article key={item.question} className="overflow-hidden rounded-xl border border-[hsl(220_16%_88%)] bg-white">
-                  <button
-                    type="button"
-                    onClick={() => setOpenIndex(open ? -1 : idx)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                  >
-                    <span className="text-sm font-semibold text-[hsl(222_47%_12%)]">{item.question}</span>
-                    <ChevronDown className={`h-4 w-4 text-[hsl(220_12%_48%)] transition-transform ${open ? 'rotate-180' : ''}`} />
-                  </button>
-                  {open && (
-                    <p className="border-t border-[hsl(220_14%_91%)] px-4 py-3 text-sm leading-relaxed text-[hsl(220_12%_35%)]">
-                      {item.answer}
-                    </p>
-                  )}
-                </article>
-              );
-            })}
           </div>
         </section>
 

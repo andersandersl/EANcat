@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .row {
+    display: grid;
+    grid-template-columns: 96px 1fr auto;
+    align-items: baseline; gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+  }
+  .row:last-child { border-bottom: none; }
+  .tag { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); }
+  .meta { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); white-space: nowrap; }
+
+  .mono { font: 500 13px/1.5 "JetBrains Mono"; }
+  .tab  { font: 500 14px "Inter"; font-variant-numeric: tabular-nums; }
+
+  .col-tabular {
+    display: grid; grid-template-columns: 60px 80px 70px; gap: 0;
+    text-align: right;
+  }
+  .col-tabular span { font: 500 14px "Inter"; font-variant-numeric: tabular-nums; padding: 1px 8px; }
+  .col-tabular .pos { color: #047857; }
+  .col-tabular .neg { color: #BE123C; }
+</style>
+</head><body>
+  <div class="stack">
+    <div class="row">
+      <span class="tag">mono</span>
+      <span class="mono">EAN 4013288234186 · mpn 0462-799</span>
+      <span class="meta">JetBrains Mono · 13 / 500</span>
+    </div>
+    <div class="row">
+      <span class="tag">tabular</span>
+      <div class="col-tabular">
+        <span class="pos">+24.5%</span><span class="tab">€189.00</span><span class="tab">62</span>
+        <span class="neg">−3.2%</span><span class="tab">€1,289.00</span><span class="tab">4</span>
+        <span class="tab">+8.1%</span><span class="tab">€44.50</span><span class="tab">Out</span>
+      </div>
+      <span class="meta">Inter · tabular-nums on</span>
+    </div>
+    <div class="row">
+      <span class="tag">mono · ID</span>
+      <span class="mono">customer_id=ip_agency · cycle=hourly-cycle-14:00</span>
+      <span class="meta">used in admin views</span>
+    </div>
+  </div>
+</body></html>

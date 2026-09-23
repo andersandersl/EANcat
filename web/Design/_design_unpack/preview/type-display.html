@@ -1,0 +1,135 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Geist:wght@500;600;700&family=Manrope:wght@500;600;700;800&family=DM+Sans:wght@500;600;700&family=Sora:wght@500;600;700&display=swap">
+<style>
+  body { padding: 18px; background: #fff; }
+  .header { margin-bottom: 12px; }
+  .title { font: 600 13px "Inter"; }
+  .sub { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); }
+
+  .opt {
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 110px 1fr 90px;
+    gap: 14px;
+    align-items: center;
+  }
+  .opt-name { font: 600 13px "Inter"; }
+  .opt-name .tag {
+    font: 600 9px "Inter"; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px;
+    background: hsl(var(--accent)); color: hsl(var(--accent-foreground));
+    margin-left: 4px;
+  }
+  .opt-meta { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+  .pix { font: var(--type-mono); font-size: 10px; color: hsl(var(--muted-foreground)); text-align: right; }
+
+  .specimen {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    line-height: 1.15;
+  }
+  .display { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; }
+  .h1 { font-size: 18px; font-weight: 600; }
+  .body { font-size: 13px; font-weight: 400; color: hsl(var(--muted-foreground)); }
+
+  /* Options */
+  .f-inter      { font-family: "Inter", sans-serif; }
+  .f-grotesk    { font-family: "Space Grotesk", sans-serif; }
+  .f-geist      { font-family: "Geist", "Inter", sans-serif; }
+  .f-manrope    { font-family: "Manrope", sans-serif; }
+  .f-dm         { font-family: "DM Sans", sans-serif; }
+  .f-sora       { font-family: "Sora", sans-serif; }
+</style>
+</head><body>
+  <div class="header">
+    <div class="title">Display & headings — exploring typefaces</div>
+    <div class="sub">all paired with Inter for body/UI · pick one and I'll propagate it through</div>
+  </div>
+
+  <div class="opt f-inter">
+    <div>
+      <div class="opt-name">Inter <span class="tag">CURRENT</span></div>
+      <div class="opt-meta">free · Google Fonts</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div class="opt f-grotesk">
+    <div>
+      <div class="opt-name">Space Grotesk</div>
+      <div class="opt-meta">technical · narrow</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div class="opt f-geist">
+    <div>
+      <div class="opt-name">Geist</div>
+      <div class="opt-meta">crisp · Vercel</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div class="opt f-manrope">
+    <div>
+      <div class="opt-name">Manrope</div>
+      <div class="opt-meta">friendly · rounded</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div class="opt f-dm">
+    <div>
+      <div class="opt-name">DM Sans</div>
+      <div class="opt-meta">geometric · warm</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div class="opt f-sora">
+    <div>
+      <div class="opt-name">Sora</div>
+      <div class="opt-meta">modern · geometric</div>
+    </div>
+    <div class="specimen">
+      <div class="display">Search Products</div>
+      <div class="h1">Logitech MX Master 3S</div>
+      <div class="body">Source: ip_agency · 494,217 products</div>
+    </div>
+    <div class="pix">28 / 700<br>18 / 600<br>13 / 400</div>
+  </div>
+
+  <div style="font:400 11px Inter;color:hsl(var(--muted-foreground));margin-top:6px">
+    Pick one — or name another typeface and I'll mock it up.
+  </div>
+</body></html>

@@ -1,0 +1,189 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 18px; }
+  .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .title { font: 600 13px "Inter"; }
+  .sub { font: 400 11px "Inter"; color: hsl(var(--muted-foreground)); }
+
+  .opt {
+    border-radius: 10px;
+    border: 1px solid hsl(var(--border));
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .opt-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .opt-name { font: 600 13px "Inter"; }
+  .opt-meta { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); }
+  .opt-tag {
+    font: 600 10px "Inter"; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .sw {
+    height: 56px; border-radius: 8px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 6px 8px;
+    font: 500 10px "Inter";
+    font-family: "JetBrains Mono", monospace;
+  }
+  .sw .hex { opacity: 0.85; }
+  .sw .role { font-family: "Inter"; font-size: 9px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* Sample UI strip */
+  .demo {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: auto auto auto auto 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+  }
+  .btn {
+    height: 26px; padding: 0 12px;
+    border-radius: 6px; border: 0;
+    font: 600 11px "Inter";
+    color: #fff;
+  }
+  .pill {
+    height: 18px; padding: 0 8px;
+    border-radius: 9999px;
+    display: inline-flex; align-items: center;
+    font: 600 10px "Inter";
+  }
+  .nav-square {
+    width: 24px; height: 24px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font: 700 11px "Inter";
+  }
+
+  /* ─── Option A: current Cobalt + Amber ────────────────────────────── */
+  .A .opt-tag { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+  .A .demo .btn { background: #1A5EFF; }
+  .A .demo .pill { background: #1A5EFF1A; color: #1A5EFF; box-shadow: inset 0 0 0 1px #1A5EFF4D; }
+  .A .demo .nav-square { background: #F59E0B; }
+
+  /* ─── Option B: Indigo + Tangerine ────────────────────────────────── */
+  .B .opt-tag { background: #EEF1FF; color: #3730A3; }
+  .B .demo .btn { background: #4F46E5; }
+  .B .demo .pill { background: #4F46E51A; color: #4F46E5; box-shadow: inset 0 0 0 1px #4F46E54D; }
+  .B .demo .nav-square { background: #F97316; }
+
+  /* ─── Option C: Teal + Coral ──────────────────────────────────────── */
+  .C .opt-tag { background: #E0F7F4; color: #0F766E; }
+  .C .demo .btn { background: #0D9488; }
+  .C .demo .pill { background: #0D94881A; color: #0D9488; box-shadow: inset 0 0 0 1px #0D94884D; }
+  .C .demo .nav-square { background: #F43F5E; }
+
+  /* ─── Option D: Slate + Lime (more neutral, B2B feel) ─────────────── */
+  .D .opt-tag { background: #F1F5F9; color: #334155; }
+  .D .demo .btn { background: #0F172A; }
+  .D .demo .pill { background: #0F172A12; color: #0F172A; box-shadow: inset 0 0 0 1px #0F172A40; }
+  .D .demo .nav-square { background: #65A30D; }
+</style>
+</head><body>
+  <div class="header">
+    <div>
+      <div class="title">Brand color — exploring directions</div>
+      <div class="sub">primary accent paired with admin/staff accent · 4 options · pick one to commit</div>
+    </div>
+  </div>
+
+  <div class="opt A">
+    <div class="opt-head">
+      <span class="opt-name">A · Cobalt + Amber <span class="opt-tag">CURRENT</span></span>
+      <span class="opt-meta">#1A5EFF · #F59E0B</span>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#1A5EFF;color:#fff"><span class="role">primary</span><span class="hex">#1A5EFF</span></div>
+      <div class="sw" style="background:#2049A8;color:#fff"><span class="role">primary-d</span><span class="hex">#2049A8</span></div>
+      <div class="sw" style="background:#E5EDFF;color:#2049A8"><span class="role">accent</span><span class="hex">#E5EDFF</span></div>
+      <div class="sw" style="background:#F59E0B;color:#221306"><span class="role">admin</span><span class="hex">#F59E0B</span></div>
+      <div class="sw" style="background:#FEF3C7;color:#92400E"><span class="role">admin tint</span><span class="hex">#FEF3C7</span></div>
+      <div class="sw" style="background:#F3F5F9;color:#1A5EFF;border:1px solid #DDE0E7"><span class="role">background</span><span class="hex">#F3F5F9</span></div>
+    </div>
+    <div class="demo">
+      <span class="nav-square">A</span>
+      <button class="btn">Add to feed</button>
+      <span class="pill">+24.5%</span>
+      <span style="font:500 11px Inter;color:#0C1228">Logitech MX Master</span>
+      <span style="font-family:JetBrains Mono;font-size:10px;color:#5A6178;justify-self:end">4013288234186</span>
+    </div>
+  </div>
+
+  <div class="opt B">
+    <div class="opt-head">
+      <span class="opt-name">B · Indigo + Tangerine</span>
+      <span class="opt-meta">#4F46E5 · #F97316</span>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#4F46E5;color:#fff"><span class="role">primary</span><span class="hex">#4F46E5</span></div>
+      <div class="sw" style="background:#3730A3;color:#fff"><span class="role">primary-d</span><span class="hex">#3730A3</span></div>
+      <div class="sw" style="background:#EEF1FF;color:#3730A3"><span class="role">accent</span><span class="hex">#EEF1FF</span></div>
+      <div class="sw" style="background:#F97316;color:#fff"><span class="role">admin</span><span class="hex">#F97316</span></div>
+      <div class="sw" style="background:#FFEDD5;color:#9A3412"><span class="role">admin tint</span><span class="hex">#FFEDD5</span></div>
+      <div class="sw" style="background:#F4F4FA;color:#4F46E5;border:1px solid #DDE0E7"><span class="role">background</span><span class="hex">#F4F4FA</span></div>
+    </div>
+    <div class="demo">
+      <span class="nav-square">A</span>
+      <button class="btn">Add to feed</button>
+      <span class="pill">+24.5%</span>
+      <span style="font:500 11px Inter;color:#0C1228">Logitech MX Master</span>
+      <span style="font-family:JetBrains Mono;font-size:10px;color:#5A6178;justify-self:end">4013288234186</span>
+    </div>
+  </div>
+
+  <div class="opt C">
+    <div class="opt-head">
+      <span class="opt-name">C · Teal + Coral</span>
+      <span class="opt-meta">#0D9488 · #F43F5E</span>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#0D9488;color:#fff"><span class="role">primary</span><span class="hex">#0D9488</span></div>
+      <div class="sw" style="background:#0F766E;color:#fff"><span class="role">primary-d</span><span class="hex">#0F766E</span></div>
+      <div class="sw" style="background:#E0F7F4;color:#0F766E"><span class="role">accent</span><span class="hex">#E0F7F4</span></div>
+      <div class="sw" style="background:#F43F5E;color:#fff"><span class="role">admin</span><span class="hex">#F43F5E</span></div>
+      <div class="sw" style="background:#FFE4E6;color:#9F1239"><span class="role">admin tint</span><span class="hex">#FFE4E6</span></div>
+      <div class="sw" style="background:#F4F8F7;color:#0D9488;border:1px solid #DDE0E7"><span class="role">background</span><span class="hex">#F4F8F7</span></div>
+    </div>
+    <div class="demo">
+      <span class="nav-square">A</span>
+      <button class="btn">Add to feed</button>
+      <span class="pill">+24.5%</span>
+      <span style="font:500 11px Inter;color:#0C1228">Logitech MX Master</span>
+      <span style="font-family:JetBrains Mono;font-size:10px;color:#5A6178;justify-self:end">4013288234186</span>
+    </div>
+  </div>
+
+  <div class="opt D">
+    <div class="opt-head">
+      <span class="opt-name">D · Graphite + Lime <span class="opt-tag" style="background:#F1F5F9;color:#334155">RESTRAINED</span></span>
+      <span class="opt-meta">#0F172A · #65A30D</span>
+    </div>
+    <div class="swatches">
+      <div class="sw" style="background:#0F172A;color:#fff"><span class="role">primary</span><span class="hex">#0F172A</span></div>
+      <div class="sw" style="background:#334155;color:#fff"><span class="role">primary-d</span><span class="hex">#334155</span></div>
+      <div class="sw" style="background:#F1F5F9;color:#334155"><span class="role">accent</span><span class="hex">#F1F5F9</span></div>
+      <div class="sw" style="background:#65A30D;color:#fff"><span class="role">admin</span><span class="hex">#65A30D</span></div>
+      <div class="sw" style="background:#ECFCCB;color:#3F6212"><span class="role">admin tint</span><span class="hex">#ECFCCB</span></div>
+      <div class="sw" style="background:#F8FAFC;color:#0F172A;border:1px solid #DDE0E7"><span class="role">background</span><span class="hex">#F8FAFC</span></div>
+    </div>
+    <div class="demo">
+      <span class="nav-square">A</span>
+      <button class="btn">Add to feed</button>
+      <span class="pill">+24.5%</span>
+      <span style="font:500 11px Inter;color:#0C1228">Logitech MX Master</span>
+      <span style="font-family:JetBrains Mono;font-size:10px;color:#5A6178;justify-self:end">4013288234186</span>
+    </div>
+  </div>
+
+  <div style="font:400 11px Inter;color:hsl(var(--muted-foreground));margin-top:6px">
+    Tell me which to commit to (A/B/C/D) — or describe a direction and I'll mock it up.
+  </div>
+</body></html>

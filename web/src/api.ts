@@ -6,6 +6,9 @@ import type {
   ProductListResponse,
   SearchSuggestionType,
   SearchSuggestResponse,
+  OpportunityScanResponse,
+  OpportunityScanPageResponse,
+  SupplierConnectionPayload,
 } from './types';
 
 // Azure Container App (eancat-api) — reads the isolated showcase_product DB.
@@ -20,10 +23,29 @@ const API_BASE = /^https?:\/\//i.test(RAW_API_BASE) ? RAW_API_BASE : `https://${
 
 async function readJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`);
+  const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
+    throw new Error(payload.error || `Request failed (${response.status})`);
   }
-  return response.json() as Promise<T>;
+  return payload as T;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('The Opportunity Finder service is unavailable. Please try again shortly.');
+  }
+  const payload = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error || `Request failed (${response.status})`);
+  }
+  return payload as T;
 }
 
 export function getProducts(
@@ -31,11 +53,13 @@ export function getProducts(
   limit = 48,
   category?: string,
   brand?: string,
-  market = 'dk',
+  market = 'fi',
   page = 1,
   grades?: Set<string>,
+  competitionLevels?: Set<number>,
   inStock?: boolean,
   hasImage?: boolean,
+  includeTotal = true,
 ): Promise<ProductListResponse> {
   const params = new URLSearchParams();
   if (query) params.set('query', query);
@@ -45,8 +69,10 @@ export function getProducts(
   if (brand) params.set('brand', brand);
   params.set('market', market);
   if (grades && grades.size > 0) params.set('grades', [...grades].join(','));
+  if (competitionLevels && competitionLevels.size > 0) params.set('competition', [...competitionLevels].sort((a, b) => a - b).join(','));
   if (inStock) params.set('inStock', 'true');
   if (hasImage) params.set('hasImage', 'true');
+  if (!includeTotal) params.set('includeTotal', 'false');
   return readJson<ProductListResponse>(`/api/public/products?${params.toString()}`);
 }
 
@@ -63,7 +89,7 @@ export function getCategories(
 
 export function getBrandClusters(
   query: string,
-  market = 'dk',
+  market = 'fi',
   brandOffset = 0,
   brandLimit = 20,
   perBrandLimit = 9,
@@ -91,9 +117,22 @@ export function getCatalogStats(): Promise<CatalogStatsResponse> {
   return readJson<CatalogStatsResponse>('/api/public/stats');
 }
 
-export function getProductByEan(ean: string, market = 'dk'): Promise<ProductDetailResponse> {
+export function getProductByEan(ean: string, market = 'fi'): Promise<ProductDetailResponse> {
   const params = new URLSearchParams({ market });
   return readJson<ProductDetailResponse>(`/api/public/products/${encodeURIComponent(ean)}?${params.toString()}`);
+}
+
+export function scanOpportunityShop(url: string): Promise<OpportunityScanResponse> {
+  return postJson<OpportunityScanResponse>('/api/public/opportunity-scan', { url });
+}
+
+export function loadMoreOpportunityProducts(scanId: string, offset: number): Promise<OpportunityScanPageResponse> {
+  const params = new URLSearchParams({ offset: String(offset) });
+  return readJson<OpportunityScanPageResponse>(`/api/public/opportunity-scan/${encodeURIComponent(scanId)}?${params.toString()}`);
+}
+
+export function requestSupplierConnection(payload: SupplierConnectionPayload): Promise<{ requestId: string; status: 'accepted' }> {
+  return postJson<{ requestId: string; status: 'accepted' }>('/api/public/supplier-connection', payload);
 }
 
 export function getSearchSuggestions(

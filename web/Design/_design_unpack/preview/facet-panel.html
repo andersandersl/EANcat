@@ -1,0 +1,84 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 20px; background: hsl(var(--background)); }
+  .panel {
+    background: #fff;
+    border: 1px solid #DDE0E7;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    padding: 12px 14px;
+    max-width: 280px;
+  }
+  .row-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font: 600 13px "Inter";
+  }
+  .clear {
+    background: transparent; border: 0; color: hsl(var(--muted-foreground));
+    font: 500 11px "Inter"; cursor: pointer;
+  }
+  .search {
+    margin-top: 8px;
+    width: 100%; height: 28px;
+    padding: 0 10px;
+    border: 1px solid #DDE0E7;
+    background: #fff;
+    border-radius: 6px;
+    font: 400 12px "Inter";
+  }
+  .list {
+    margin-top: 8px;
+    border: 1px solid #DDE0E766;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .item {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    font: 400 12px "Inter";
+  }
+  .item.checked { background: #E5EDFF80; }
+  .item:hover { background: #E5EDFF66; }
+  .check {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid #B8BFCF;
+    background: #fff;
+  }
+  .check.on {
+    background: #1A5EFF;
+    border-color: #1A5EFF;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check.on::after {
+    content: ""; width: 6px; height: 4px;
+    border: solid #fff;
+    border-width: 0 0 1.5px 1.5px;
+    transform: rotate(-45deg) translate(0px, -1px);
+  }
+  .count { font: 500 10px "Inter"; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+  .name { color: #0C1228; }
+  .item.checked .name { font-weight: 500; }
+</style></head>
+<body>
+  <div class="panel">
+    <div class="row-head">
+      Brand
+      <button class="clear">Clear</button>
+    </div>
+    <input class="search" type="search" placeholder="Search brand…">
+    <div class="list">
+      <div class="item checked"><div class="check on"></div><span class="name">Logitech</span><span class="count">2,184</span></div>
+      <div class="item checked"><div class="check on"></div><span class="name">Apple</span><span class="count">1,402</span></div>
+      <div class="item"><div class="check"></div><span class="name">Samsung</span><span class="count">3,889</span></div>
+      <div class="item"><div class="check"></div><span class="name">Sennheiser</span><span class="count">912</span></div>
+      <div class="item"><div class="check"></div><span class="name">Microsoft</span><span class="count">684</span></div>
+      <div class="item"><div class="check"></div><span class="name">Dell</span><span class="count">512</span></div>
+      <div class="item"><div class="check"></div><span class="name">HP</span><span class="count">498</span></div>
+    </div>
+  </div>
+</body></html>

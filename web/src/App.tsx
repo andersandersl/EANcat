@@ -1,6 +1,6 @@
 ﻿import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ExternalLink, Filter, Loader2, Menu, Search, X } from 'lucide-react';
+import { Check, ChevronDown, Filter, Loader2, Menu, Search, X } from 'lucide-react';
 import { getBrandClusters, getCategories, getProducts, getSearchSuggestions } from './api';
 import type { BrandClusterGroup, CategoryEntry, PublicProduct, SearchSuggestion } from './types';
 import SiteFooter from './SiteFooter';
@@ -20,6 +20,7 @@ const FILTER_OPTIONS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const HOME_CATALOG_CACHE_KEY = 'webversion.home-catalog.cache.v4';
 const HOME_CATALOG_CACHE_TTL_MS = 60 * 60 * 1000;
 const URL_ALLOWED_GRADES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'N/A']);
+const DEFAULT_MARKET = 'fi';
 
 type HomeCatalogCachePayload =
   | {
@@ -60,6 +61,25 @@ function splitFilterValues(value: string): string[] {
 
 function joinFilterValues(values: string[]): string {
   return [...new Set(values.map((item) => item.trim()).filter(Boolean))].join(',');
+}
+
+function formatCategoryDisplayName(value: string): string {
+  const afterChevron = value.includes('>') ? value.split('>').at(-1) ?? value : value;
+  const normalized = afterChevron.trim();
+  if (normalized.includes(' - ')) {
+    return normalized.split(' - ').at(-1)?.trim() || normalized;
+  }
+  return normalized;
+}
+
+function summarizeQuickFilterSelection(
+  label: string,
+  values: string[],
+  formatter: (value: string) => string = (value) => value,
+): string {
+  if (values.length === 0) return label;
+  if (values.length === 1) return formatter(values[0]);
+  return `${label} (${values.length} selected)`;
 }
 
 const GRADE_STYLES: Record<string, { bg: string; text: string }> = {
@@ -265,15 +285,29 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
 
 function marginRangeLabel(grade: string, marketPrice: number | null, currency: string | null): string | null {
   if (!marketPrice || marketPrice <= 0 || grade === 'N/A') return null;
-  const sym = currency === 'DKK' || currency === 'SEK' ? '' : '€';
-  const suffix = currency === 'DKK' ? ' kr' : currency === 'SEK' ? ' kr' : '';
-  const fmt = (v: number) => `${sym}${Math.round(Math.abs(v)).toLocaleString()}${suffix}`;
+  const marketCurrency = (currency || 'EUR').toUpperCase();
+  const resolvedCurrency = marketCurrency === 'DKK' || marketCurrency === 'SEK' || marketCurrency === 'EUR'
+    ? marketCurrency
+    : 'EUR';
+  const localeByCurrency: Record<string, string> = {
+    DKK: 'da-DK',
+    SEK: 'sv-SE',
+    EUR: 'fi-FI',
+  };
+  const fmt = (v: number) => new Intl.NumberFormat(localeByCurrency[resolvedCurrency], {
+    style: 'currency',
+    currency: resolvedCurrency,
+    currencyDisplay: 'code',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Math.abs(v));
+  const zeroLabel = fmt(0);
   switch (grade) {
     case 'A': return `More than +${fmt(marketPrice * 0.20)}`;
     case 'B': return `Between ${fmt(marketPrice * 0.10)} to ${fmt(marketPrice * 0.20)}`;
     case 'C': return `Between ${fmt(marketPrice * 0.05)} to ${fmt(marketPrice * 0.10)}`;
-    case 'D': return `Between ${currency === 'DKK' || currency === 'SEK' ? '0 kr' : '\u20ac0'} to ${fmt(marketPrice * 0.05)}`;
-    case 'E': return `Loss between 0 and -${fmt(marketPrice * 0.10)}`;
+    case 'D': return `Between ${zeroLabel} to ${fmt(marketPrice * 0.05)}`;
+    case 'E': return `Loss between ${zeroLabel} and -${fmt(marketPrice * 0.10)}`;
     case 'F': return `Less than -${fmt(marketPrice * 0.10)}`;
     default: return null;
   }
@@ -281,10 +315,12 @@ function marginRangeLabel(grade: string, marketPrice: number | null, currency: s
 
 const ProductCard = memo(function ProductCard({
   product,
+  market,
   compact,
   eagerImage,
 }: {
   product: PublicProduct;
+  market: string;
   compact?: boolean;
   eagerImage?: boolean;
 }) {
@@ -302,7 +338,7 @@ const ProductCard = memo(function ProductCard({
         containIntrinsicSize: compact ? '330px 180px' : '360px 220px',
       }}
     >
-      <Link to={`/product/${encodeURIComponent(product.ean)}`} className="block">
+      <Link to={`/product/${encodeURIComponent(product.ean)}?market=${encodeURIComponent(market)}`} className="block">
         <div className={`aspect-square bg-white overflow-hidden relative ${compact ? 'max-h-[180px]' : ''}`}>
           <img
             src={product.image || PLACEHOLDER_IMAGE}
@@ -340,7 +376,7 @@ const ProductCard = memo(function ProductCard({
         </div>
       </Link>
       <div className={`${compact ? 'p-2.5 gap-1.5' : 'p-3 gap-2'} flex flex-col flex-1`}>
-        <Link to={`/product/${encodeURIComponent(product.ean)}`} className="block min-w-0 hover:underline decoration-[hsl(221_92%_55%)] underline-offset-2">
+        <Link to={`/product/${encodeURIComponent(product.ean)}?market=${encodeURIComponent(market)}`} className="block min-w-0 hover:underline decoration-[hsl(221_92%_55%)] underline-offset-2">
           <p className={`${compact ? 'text-[9px]' : 'text-[10px]'} text-[hsl(220_12%_50%)] font-medium truncate`}>{product.brand || '—'}</p>
           <h3 className={`${compact ? 'text-[11px] min-h-[2rem]' : 'text-xs min-h-[2.25rem]'} font-semibold text-[hsl(222_47%_8%)] line-clamp-2 leading-snug mt-0.5`}>{product.title}</h3>
         </Link>
@@ -356,29 +392,26 @@ const ProductCard = memo(function ProductCard({
         <p className={`${compact ? 'text-[8px]' : 'text-[9px]'} text-[hsl(220_12%_45%)] font-medium whitespace-nowrap overflow-hidden text-ellipsis`}>
           Est. margin: <span className="text-[hsl(222_47%_20%)] font-semibold">{rangeLabel ?? 'Not available'}</span>
         </p>
-        <div className={`flex ${compact ? 'gap-1' : 'gap-1.5'} mt-auto`}>
-          {product.cheapestMarketLink ? (
-            <a
-              href={product.cheapestMarketLink}
-              target="_blank"
-              rel="noreferrer"
-              className={`w-full flex items-center justify-center gap-1 font-medium text-[hsl(221_92%_55%)] border border-[hsl(221_92%_55%)] rounded-md ${compact ? 'text-[9px] px-1.5 py-1' : 'text-[10px] px-2 py-1.5'} hover:bg-[hsl(221_80%_95%)] transition-colors`}
-            >
-              <ExternalLink className={`${compact ? 'w-2 h-2' : 'w-2.5 h-2.5'} shrink-0`} />
-              {product.marketPrice != null
-                ? (product.marketCurrency === 'DKK' || product.marketCurrency === 'SEK'
-                    ? `${Math.round(product.marketPrice)} ${product.marketCurrency === 'DKK' ? 'kr' : 'kr'}`
-                    : `€${product.marketPrice.toFixed(0)}`)
-                : 'Market'}
-            </a>
-          ) : (
-            <span className="flex-1" />
-          )}
-        </div>
       </div>
     </div>
   );
 });
+
+function ProductCardSkeleton({ compact }: { compact?: boolean }) {
+  const compactClass = compact ? 'rounded-lg' : 'rounded-xl';
+  return (
+    <div className={`animate-pulse bg-white ${compactClass} border border-[hsl(220_14%_89%)] shadow-[0_1px_3px_0_rgb(0_0_0/0.06)] overflow-hidden`}>
+      <div className={`aspect-square bg-[hsl(220_18%_95%)] ${compact ? 'max-h-[180px]' : ''}`} />
+      <div className={`${compact ? 'p-2.5 gap-1.5' : 'p-3 gap-2'} flex flex-col`}>
+        <div className="h-2.5 w-16 rounded bg-[hsl(220_16%_90%)]" />
+        <div className="h-3 w-full rounded bg-[hsl(220_16%_90%)]" />
+        <div className="h-3 w-4/5 rounded bg-[hsl(220_16%_90%)]" />
+        <div className="h-5 w-full rounded bg-[hsl(220_16%_90%)]" />
+        <div className="h-2.5 w-3/4 rounded bg-[hsl(220_16%_90%)]" />
+      </div>
+    </div>
+  );
+}
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
@@ -399,15 +432,14 @@ function App() {
   useDocumentMeta(
     decodedRouteBrand
       ? {
-          title: `${decodedRouteBrand} products`,
-          description: `Browse ${decodedRouteBrand} products in the EANrunner catalogue — enriched product data, live stock, and competitive wholesale prices across Europe.`,
+          title: `${decodedRouteBrand} Wholesale Products`,
+          description: `Browse ${decodedRouteBrand} wholesale products with EAN data, live stock updates, and competitive EU market pricing in the EANrunner catalog.`,
           path: `/brand/${encodeURIComponent(decodedRouteBrand)}`,
         }
       : {
-          title: 'EANrunner — The catalogue',
-          rawTitle: true,
+          title: 'Wholesale Product Catalog',
           description:
-            'Browse 100,000+ products with enriched data, live stock, and competitive wholesale prices from reliable European distributors.',
+            'Discover 100,000+ wholesale products with enriched EAN data, live stock, and competitive market pricing for European retailers and distributors.',
           path: '/',
         },
   );
@@ -427,7 +459,7 @@ function App() {
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set());
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [brandSearchTerm, setBrandSearchTerm] = useState('');
-  const [market, setMarket] = useState('dk');
+  const [market, setMarket] = useState(DEFAULT_MARKET);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [products, setProducts] = useState<PublicProduct[]>([]);
@@ -453,6 +485,7 @@ function App() {
   const [brandClusterGroups, setBrandClusterGroups] = useState<BrandClusterGroup[]>([]);
   const [brandClusterOffset, setBrandClusterOffset] = useState(0);
   const [brandClusterTotalBrands, setBrandClusterTotalBrands] = useState(0);
+  const [homeRefreshTick, setHomeRefreshTick] = useState(0);
   const [disableBrandClusters, setDisableBrandClusters] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -466,8 +499,13 @@ function App() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const quickCategoryRef = useRef<HTMLDivElement | null>(null);
+  const quickBrandRef = useRef<HTMLDivElement | null>(null);
   const latestSuggestRequestRef = useRef(0);
   const suppressNextSuggestRef = useRef(false);
+  const dismissedSuggestionsQueryRef = useRef<string | null>(null);
+  const lastSuggestionQueryRef = useRef('');
+  const [topQuickFilterOpen, setTopQuickFilterOpen] = useState<'category' | 'brand' | null>(null);
   const selectedCategoryValues = useMemo(() => splitFilterValues(selectedCategory), [selectedCategory]);
   const selectedBrandValues = useMemo(() => splitFilterValues(selectedBrand), [selectedBrand]);
 
@@ -481,7 +519,7 @@ function App() {
     && !debouncedKeyword.trim()
     && selectedCompetitionLevels.size === 0
     && selectedGrades.size === 0
-    && market === 'dk'
+    && market === DEFAULT_MARKET
     && inStockOnly === true
     && hasPictureOnly === false;
   const pageSize = shouldUseCompactPreviewPageSize ? compactPreviewPageSize : defaultListPageSize;
@@ -532,7 +570,9 @@ function App() {
     setSelectedCategory('');
     setBrandFilter('');
     setKeyword('');
-    setMarket('dk');
+    setCategorySearchTerm('');
+    setBrandSearchTerm('');
+    setMarket(DEFAULT_MARKET);
     setInStockOnly(true);
     setHasPictureOnly(false);
     setSelectedGrades(new Set());
@@ -540,13 +580,41 @@ function App() {
     setPage(1);
     setBrandVisibleLimit(BRAND_PAGE_INITIAL_BATCH_SIZE);
     setBrandClusterOffset(0);
+    setBrandClusterGroups([]);
+    setBrandClusterTotalBrands(0);
+    setProducts([]);
     setShowIntroCard(true);
     setFiltersOpen(false);
+    // Force a fresh home-catalog load even when the user is already on default state.
+    setHomeRefreshTick((tick) => tick + 1);
+  };
+
+  const commitQuickCategorySelection = (rawValue?: string) => {
+    const query = (rawValue ?? categorySearchTerm).trim();
+    if (!query) return false;
+    const normalizedQuery = query.toLowerCase();
+    const matches = availableCategoryOptions.filter((item) => item.name.trim().toLowerCase().includes(normalizedQuery));
+    const matched = matches.find((item) => item.name.trim().toLowerCase() === normalizedQuery) ?? (matches.length === 1 ? matches[0] : null);
+    if (!matched) return false;
+    setSelectedCategory(joinFilterValues([...selectedCategoryValues, matched.name]));
+    setCategorySearchTerm('');
+    return true;
+  };
+
+  const commitQuickBrandSelection = (rawValue?: string) => {
+    const query = (rawValue ?? brandSearchTerm).trim();
+    if (!query) return false;
+    const normalizedQuery = query.toLowerCase();
+    const matches = availableBrandOptions.filter((brand) => brand.trim().toLowerCase().includes(normalizedQuery));
+    const matched = matches.find((brand) => brand.trim().toLowerCase() === normalizedQuery) ?? (matches.length === 1 ? matches[0] : null);
+    if (!matched) return false;
+    setSelectedBrand(joinFilterValues([...selectedBrandValues, matched]));
+    setBrandSearchTerm('');
+    return true;
   };
 
   useEffect(() => {
     const routeBrand = decodedRouteBrand.trim();
-    setSelectedBrand(routeBrand);
     if (routeBrand) {
       setInStockOnly(false);
       setHasPictureOnly(false);
@@ -561,8 +629,15 @@ function App() {
         setMenuOpen(false);
       }
       if (searchBoxRef.current && (!target || !searchBoxRef.current.contains(target))) {
+        dismissedSuggestionsQueryRef.current = searchInputRef.current?.value.trim().toLowerCase() || null;
+        latestSuggestRequestRef.current += 1;
         setSuggestionsOpen(false);
+        setSuggestionsLoading(false);
         setActiveSuggestionIndex(-1);
+      }
+      if (quickCategoryRef.current && (!target || !quickCategoryRef.current.contains(target))
+        && quickBrandRef.current && (!target || !quickBrandRef.current.contains(target))) {
+        setTopQuickFilterOpen(null);
       }
     };
     document.addEventListener('mousedown', onPointerDown);
@@ -580,8 +655,9 @@ function App() {
 
     const nextKeyword = (params.get('q') || '').trim();
     const nextCategory = (params.get('category') || '').trim();
+    const nextBrand = decodedRouteBrand.trim() || (params.get('brand') || '').trim();
     const nextMarketParam = (params.get('market') || '').trim().toLowerCase();
-    const nextMarket = nextMarketParam === 'dk' || nextMarketParam === 'se' || nextMarketParam === 'fi' ? nextMarketParam : 'dk';
+    const nextMarket = nextMarketParam === 'dk' || nextMarketParam === 'se' || nextMarketParam === 'fi' ? nextMarketParam : DEFAULT_MARKET;
 
     const nextGrades = new Set(
       (params.get('grades') || '')
@@ -606,6 +682,7 @@ function App() {
 
     if (keyword !== nextKeyword) setKeyword(nextKeyword);
     if (selectedCategory !== nextCategory) setSelectedCategory(nextCategory);
+    if (selectedBrand !== nextBrand) setSelectedBrand(nextBrand);
     if (market !== nextMarket) setMarket(nextMarket);
     if (inStockOnly !== nextInStockOnly) setInStockOnly(nextInStockOnly);
     if (hasPictureOnly !== nextHasPictureOnly) setHasPictureOnly(nextHasPictureOnly);
@@ -639,7 +716,8 @@ function App() {
     const normalizedKeyword = keyword.trim();
     if (normalizedKeyword) params.set('q', normalizedKeyword);
     if (selectedCategory.trim()) params.set('category', selectedCategory.trim());
-    if (market !== 'dk') params.set('market', market);
+    if (selectedBrand.trim() && selectedBrandValues.length !== 1) params.set('brand', selectedBrand.trim());
+    if (market !== DEFAULT_MARKET) params.set('market', market);
 
     const sortedGrades = [...selectedGrades].sort((a, b) => a.localeCompare(b));
     if (sortedGrades.length > 0) params.set('grades', sortedGrades.join(','));
@@ -656,7 +734,7 @@ function App() {
 
     navigate(
       {
-        pathname: decodedRouteBrand.trim() && selectedBrandValues.length === 1 ? `/brand/${encodeURIComponent(selectedBrandValues[0])}` : '/',
+        pathname: selectedBrandValues.length === 1 ? `/brand/${encodeURIComponent(selectedBrandValues[0])}` : '/',
         search: nextSearch ? `?${nextSearch}` : '',
       },
       { replace: true },
@@ -717,7 +795,7 @@ function App() {
         && selectedBrandValues.length === 0
         && selectedCompetitionLevels.size === 0
         && selectedGrades.size === 0
-        && market === 'dk'
+        && market === DEFAULT_MARKET
         && inStockOnly === true
         && hasPictureOnly === false;
 
@@ -732,7 +810,7 @@ function App() {
         });
         const cached = loadHomeCatalogCache(shouldClusterByBrand ? clusterCacheKey : productCacheKey);
         const shouldUseCached = cached
-          && (cached.mode !== 'clusters' || cached.brandClusterGroups.length > 0 || cached.totalBrands === 0);
+          && (cached.mode !== 'clusters' || cached.brandClusterGroups.length > 0);
 
         if (shouldUseCached) {
           setError('');
@@ -780,8 +858,11 @@ function App() {
             );
 
             if (!active) return;
-            if (brandClusterOffset === 0 && clusterData.totalBrands > 0 && clusterData.brands.length === 0) {
+            if (brandClusterOffset === 0 && clusterData.brands.length === 0 && clusterData.totalProducts > 0) {
               throw new Error('Empty cluster payload for non-empty catalog');
+            }
+            if (brandClusterOffset === 0 && canUseHomeCatalogCache && clusterData.brands.length === 0) {
+              throw new Error('Empty cluster payload for front page');
             }
             setDisableBrandClusters(false);
             setBrandClusterGroups((prev) => (brandClusterOffset === 0 ? clusterData.brands : [...prev, ...clusterData.brands]));
@@ -828,15 +909,46 @@ function App() {
           market,
           effectivePage,
           selectedGrades.size > 0 ? selectedGrades : undefined,
+          selectedCompetitionLevels.size > 0 ? selectedCompetitionLevels : undefined,
           inStockOnly || undefined,
           hasPictureOnly || undefined,
+          false,
         );
-        const backendTotal = data.total ?? data.count;
 
         if (!active) return;
         setProducts(data.products);
-        setTotalProducts(backendTotal);
-        setHasLoadedTotalProducts(true);
+        if (data.total != null) {
+          setTotalProducts(data.total);
+          setHasLoadedTotalProducts(true);
+        } else {
+          setTotalProducts(data.count);
+          setHasLoadedTotalProducts(false);
+
+          // Load the exact total separately so products can render immediately.
+          void getProducts(
+            normalizedKeyword,
+            1,
+            selectedCategoryFilter,
+            selectedBrandFilter,
+            market,
+            1,
+            selectedGrades.size > 0 ? selectedGrades : undefined,
+            selectedCompetitionLevels.size > 0 ? selectedCompetitionLevels : undefined,
+            inStockOnly || undefined,
+            hasPictureOnly || undefined,
+            true,
+          )
+            .then((totalData) => {
+              if (!active) return;
+              if (totalData.total != null) {
+                setTotalProducts(totalData.total);
+                setHasLoadedTotalProducts(true);
+              }
+            })
+            .catch(() => {
+              // Keep showing partial result count if total lookup fails.
+            });
+        }
 
         if (canUseHomeCatalogCache) {
           saveHomeCatalogCache({
@@ -847,7 +959,7 @@ function App() {
               limit: effectiveLimit,
             }),
             products: data.products,
-            totalProducts: backendTotal,
+            totalProducts: data.total ?? data.count,
           });
         }
       } catch (err) {
@@ -881,6 +993,7 @@ function App() {
     pageSize,
     compactBrandPreviewCount,
     brandClusterPerBrandLimit,
+    homeRefreshTick,
   ]);
 
   // Reset to page 1 when filters change
@@ -921,9 +1034,18 @@ function App() {
         if (aHasImage !== bHasImage) return bHasImage - aHasImage;
       }
 
-      const aNa = a.marginGrade === 'N/A' ? 1 : 0;
-      const bNa = b.marginGrade === 'N/A' ? 1 : 0;
-      return aNa - bNa;
+      const gradePriority = (grade: string): number => {
+        if (grade === 'F') return 3;
+        if (grade === 'E') return 2;
+        if (grade === 'N/A') return 1;
+        return 0;
+      };
+
+      const aPriority = gradePriority(a.marginGrade);
+      const bPriority = gradePriority(b.marginGrade);
+      if (aPriority !== bPriority) return aPriority - bPriority;
+
+      return (b.competitorCount ?? 0) - (a.competitorCount ?? 0);
       })
         .slice(0, (isCompactVersion && decodedRouteBrand.trim()) ? brandVisibleLimit : listVisibleLimit);
       }, [products, selectedCompetitionLevels, debouncedKeyword, isCompactVersion, decodedRouteBrand, selectedBrandValues, brandVisibleLimit, listVisibleLimit]);
@@ -933,7 +1055,13 @@ function App() {
   const sortedCategories = useMemo(
     () => [...categories]
       .filter((entry) => entry.count > 0)
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .sort((a, b) => {
+        const labelA = formatCategoryDisplayName(a.name);
+        const labelB = formatCategoryDisplayName(b.name);
+        const byLabel = labelA.localeCompare(labelB, undefined, { sensitivity: 'base' });
+        if (byLabel !== 0) return byLabel;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      }),
     [categories],
   );
 
@@ -1012,7 +1140,7 @@ function App() {
     for (const category of selectedCategoryValues) {
       chips.push({
         key: `category-${category}`,
-        label: `Category: ${category}`,
+        label: `Category: ${formatCategoryDisplayName(category)}`,
         clear: () => {
           setSelectedCategory(joinFilterValues(selectedCategoryValues.filter((item) => item !== category)));
         },
@@ -1021,14 +1149,11 @@ function App() {
     if (keyword.trim()) {
       chips.push({ key: 'search', label: `Search: ${keyword.trim()}`, clear: () => setKeyword('') });
     }
-    if (market !== 'dk') {
-      chips.push({ key: 'market', label: `Market: ${market.toUpperCase()}`, clear: () => setMarket('dk') });
-    }
     const isDefaultFrontPageState = isCompactVersion
       && !decodedRouteBrand.trim()
       && inStockOnly
       && !hasPictureOnly
-      && market === 'dk'
+      && market === DEFAULT_MARKET
       && !keyword.trim()
       && selectedCategoryValues.length === 0
       && selectedBrandValues.length === 0
@@ -1083,6 +1208,19 @@ function App() {
   const searchPlaceholder = hasLoadedTotalProducts
     ? `Search EAN, Title, MPN of ${totalProducts.toLocaleString()} products`
     : 'Search EAN, Title, MPN';
+  const isSearchLoading = loading && debouncedKeyword.trim().length > 0;
+  const shouldShowGridSkeletons = loading && !shouldClusterByBrand && visibleProducts.length === 0;
+  const skeletonCount = isMobileViewport ? 6 : 12;
+  const hasActiveResultFilters = Boolean(
+    debouncedKeyword.trim()
+      || selectedCategoryValues.length > 0
+      || selectedBrandValues.length > 0
+      || selectedCompetitionLevels.size > 0
+      || selectedGrades.size > 0
+      || hasPictureOnly
+      || market !== DEFAULT_MARKET
+      || (!isCompactVersion && inStockOnly),
+  );
 
   useEffect(() => {
     const inputFocused = typeof document !== 'undefined' && document.activeElement === searchInputRef.current;
@@ -1098,7 +1236,32 @@ function App() {
     }
 
     const query = keyword.trim();
+    const queryLower = query.toLowerCase();
+    const queryChanged = queryLower !== lastSuggestionQueryRef.current;
+    if (queryChanged) {
+      lastSuggestionQueryRef.current = queryLower;
+    }
+
+    if (!queryChanged && !suggestionsOpen) {
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    if (
+      dismissedSuggestionsQueryRef.current
+      && dismissedSuggestionsQueryRef.current !== queryLower
+    ) {
+      dismissedSuggestionsQueryRef.current = null;
+    }
+
+    if (dismissedSuggestionsQueryRef.current === queryLower) {
+      setSuggestionsLoading(false);
+      return;
+    }
+
     if (query.length < 2) {
+      lastSuggestionQueryRef.current = '';
+      dismissedSuggestionsQueryRef.current = null;
       setSearchSuggestions([]);
       setSuggestionsLoading(false);
       setSuggestionsOpen(false);
@@ -1106,7 +1269,6 @@ function App() {
       return;
     }
 
-    const queryLower = query.toLowerCase();
     const localBrandStartsWith = availableBrandOptions
       .filter((brand) => brand.toLowerCase().startsWith(queryLower))
       .slice(0, 4)
@@ -1215,7 +1377,7 @@ function App() {
     }, 60);
 
     return () => clearTimeout(timer);
-  }, [keyword, market, inStockOnly, hasPictureOnly, availableBrandOptions, availableCategoryOptions, products]);
+  }, [keyword, market, inStockOnly, hasPictureOnly, availableBrandOptions, availableCategoryOptions, products, suggestionsOpen]);
 
   const applySuggestion = (suggestion: SearchSuggestion) => {
     suppressNextSuggestRef.current = true;
@@ -1229,6 +1391,8 @@ function App() {
       setKeyword(suggestion.value);
     }
     setSearchSuggestions([]);
+    dismissedSuggestionsQueryRef.current = suggestion.value.trim().toLowerCase() || null;
+    latestSuggestRequestRef.current += 1;
     setSuggestionsOpen(false);
     setSuggestionsLoading(false);
     setActiveSuggestionIndex(-1);
@@ -1263,8 +1427,8 @@ function App() {
 
                 <div
                   ref={searchBoxRef}
-                  className={`relative flex min-h-9 flex-1 flex-wrap items-center gap-1 rounded-lg border border-[hsl(220_14%_89%)] bg-white px-2 py-1 ${
-                    isMobileViewport ? 'order-2 basis-full min-w-0' : 'min-w-[260px]'
+                  className={`relative flex h-10 flex-1 flex-wrap items-center gap-1 rounded-lg border border-[hsl(220_14%_89%)] bg-white px-2 py-0 ${
+                    isMobileViewport ? 'order-2 basis-full min-w-0' : 'min-w-[220px] flex-[1.1]'
                   }`}
                 >
                   <div className="flex min-w-0 flex-1 items-center">
@@ -1275,6 +1439,8 @@ function App() {
                       value={keyword}
                       onChange={(e) => setKeyword(e.target.value)}
                       onFocus={() => {
+                        const queryLower = keyword.trim().toLowerCase();
+                        if (dismissedSuggestionsQueryRef.current === queryLower) return;
                         if (searchSuggestions.length > 0 || suggestionsLoading) {
                           setSuggestionsOpen(true);
                         }
@@ -1299,7 +1465,10 @@ function App() {
                           if (selected) applySuggestion(selected);
                         } else if (event.key === 'Escape') {
                           event.preventDefault();
+                          dismissedSuggestionsQueryRef.current = keyword.trim().toLowerCase() || null;
+                          latestSuggestRequestRef.current += 1;
                           setSuggestionsOpen(false);
+                          setSuggestionsLoading(false);
                           setActiveSuggestionIndex(-1);
                         }
                       }}
@@ -1310,24 +1479,24 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setFiltersOpen((v) => !v)}
-                    className={`inline-flex h-7 shrink-0 items-center rounded-md border px-2 text-[11px] font-semibold transition-colors ${
+                    className={`inline-flex h-9 shrink-0 items-center rounded-lg border px-2.5 text-[11px] font-medium transition-colors ${
                       filtersOpen
                         ? 'border-[hsl(221_72%_72%)] bg-[hsl(221_84%_95%)] text-[hsl(221_72%_32%)]'
                         : 'border-[hsl(220_16%_84%)] bg-white text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]'
                     }`}
                   >
-                    <Filter className="mr-1 h-3 w-3" />
+                    <Filter className="mr-1 h-3.5 w-3.5" />
                     Filters
                   </button>
                   {!isMobileViewport && (
-                    <div className="inline-flex h-7 shrink-0 items-center overflow-hidden rounded-md border border-[hsl(220_16%_84%)] bg-white">
+                    <div className="inline-flex h-9 shrink-0 items-center overflow-hidden rounded-lg border border-[hsl(220_16%_84%)] bg-white">
                       <button
                         type="button"
                         onClick={() => setViewMode('grid')}
-                        className={`h-full px-2 text-[10px] font-semibold ${
+                        className={`h-full px-2.5 text-[11px] font-medium ${
                           viewMode === 'grid'
                             ? 'bg-[hsl(221_84%_95%)] text-[hsl(221_72%_32%)]'
-                            : 'text-[hsl(220_12%_45%)] hover:bg-[hsl(220_18%_95%)]'
+                            : 'text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]'
                         }`}
                       >
                         Pictures
@@ -1335,10 +1504,10 @@ function App() {
                       <button
                         type="button"
                         onClick={() => setViewMode('list')}
-                        className={`h-full border-l border-[hsl(220_16%_84%)] px-2 text-[10px] font-semibold ${
+                        className={`h-full border-l border-[hsl(220_16%_84%)] px-2.5 text-[11px] font-medium ${
                           viewMode === 'list'
                             ? 'bg-[hsl(221_84%_95%)] text-[hsl(221_72%_32%)]'
-                            : 'text-[hsl(220_12%_45%)] hover:bg-[hsl(220_18%_95%)]'
+                            : 'text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]'
                         }`}
                       >
                         List
@@ -1346,8 +1515,8 @@ function App() {
                     </div>
                   )}
                   {loading ? (
-                    <span className="inline-flex h-7 shrink-0 items-center rounded-md border border-[hsl(221_72%_72%)] bg-[hsl(221_84%_95%)] px-2 text-[10px] font-semibold text-[hsl(221_72%_32%)]">
-                      Loading results...
+                    <span className="inline-flex h-9 shrink-0 items-center rounded-lg border border-[hsl(221_72%_72%)] bg-[hsl(221_84%_95%)] px-2.5 text-[11px] font-medium text-[hsl(221_72%_32%)]">
+                      {isSearchLoading ? 'Searching products...' : 'Loading catalog...'}
                     </span>
                   ) : null}
 
@@ -1389,23 +1558,124 @@ function App() {
                   )}
                 </div>
 
+                {!isMobileViewport && !filtersOpen && (
+                  <>
+                    <div ref={quickCategoryRef} className="relative hidden lg:flex h-10 w-[210px] shrink-0 items-center rounded-lg border border-[hsl(220_14%_89%)] bg-white px-3">
+                      <input
+                        type="text"
+                        value={categorySearchTerm}
+                        onChange={(e) => setCategorySearchTerm(e.target.value)}
+                        onFocus={() => setTopQuickFilterOpen('category')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void commitQuickCategorySelection();
+                            setTopQuickFilterOpen(null);
+                          }
+                        }}
+                        placeholder={summarizeQuickFilterSelection('Category', selectedCategoryValues, formatCategoryDisplayName)}
+                        className="h-7 w-full border-0 bg-transparent px-0 text-xs text-[hsl(222_47%_8%)] placeholder:text-[hsl(220_12%_60%)] focus:outline-none"
+                      />
+                      {topQuickFilterOpen === 'category' && (
+                        <div className="absolute left-0 top-full z-50 mt-1 max-h-72 w-[340px] overflow-y-auto rounded-lg border border-[hsl(220_16%_84%)] bg-white py-1 shadow-[0_10px_28px_rgb(18_32_74/0.16)]">
+                          {(categorySearchTerm.trim() ? filteredCategoryOptions : availableCategoryOptions).map((item) => {
+                            const isSelected = selectedCategoryValues.includes(item.name);
+                            return (
+                              <button
+                                key={item.name}
+                                type="button"
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  void commitQuickCategorySelection(item.name);
+                                  setTopQuickFilterOpen(null);
+                                }}
+                                className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-xs text-[hsl(222_47%_16%)] hover:bg-[hsl(220_18%_96%)]"
+                              >
+                                <span className="min-w-0 flex-1 whitespace-normal leading-snug">{formatCategoryDisplayName(item.name)}</span>
+                                <span className="flex shrink-0 items-center gap-2 pt-0.5 text-[10px] text-[hsl(220_12%_50%)]">
+                                  <span>{item.count}</span>
+                                  {isSelected && <Check className="h-3.5 w-3.5 text-[hsl(221_92%_55%)]" />}
+                                </span>
+                              </button>
+                            );
+                          })}
+                          {(categorySearchTerm.trim() ? filteredCategoryOptions : availableCategoryOptions).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-[hsl(220_12%_46%)]">No matching categories</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div ref={quickBrandRef} className="relative hidden lg:flex h-10 w-[210px] shrink-0 items-center rounded-lg border border-[hsl(220_14%_89%)] bg-white px-3">
+                      <input
+                        type="text"
+                        value={brandSearchTerm}
+                        onChange={(e) => setBrandSearchTerm(e.target.value)}
+                        onFocus={() => setTopQuickFilterOpen('brand')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void commitQuickBrandSelection();
+                            setTopQuickFilterOpen(null);
+                          }
+                        }}
+                        placeholder={summarizeQuickFilterSelection('Brand', selectedBrandValues)}
+                        className="h-7 w-full border-0 bg-transparent px-0 text-xs text-[hsl(222_47%_8%)] placeholder:text-[hsl(220_12%_60%)] focus:outline-none"
+                      />
+                      {topQuickFilterOpen === 'brand' && (
+                        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-[hsl(220_16%_84%)] bg-white py-1 shadow-[0_10px_28px_rgb(18_32_74/0.16)]">
+                          {(brandSearchTerm.trim() ? filteredBrandOptions : availableBrandOptions).map((brand) => {
+                            const isSelected = selectedBrandValues.includes(brand);
+                            return (
+                              <button
+                                key={brand}
+                                type="button"
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  void commitQuickBrandSelection(brand);
+                                  setTopQuickFilterOpen(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[hsl(222_47%_16%)] hover:bg-[hsl(220_18%_96%)]"
+                              >
+                                <span className="min-w-0 flex-1 truncate">{brand}</span>
+                                {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-[hsl(221_92%_55%)]" />}
+                              </button>
+                            );
+                          })}
+                          {(brandSearchTerm.trim() ? filteredBrandOptions : availableBrandOptions).length === 0 && (
+                            <div className="px-3 py-2 text-xs text-[hsl(220_12%_46%)]">No matching brands</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 <div className={`flex shrink-0 flex-wrap items-center gap-1.5 text-xs text-[hsl(220_12%_50%)] ${isMobileViewport ? 'order-1 ml-auto' : ''}`}>
                   {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin text-[hsl(220_16%_40%)]" /> : null}
                   {!isMobileViewport && (
-                    <a
-                      href="https://app.eanrunner.com/"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-9 items-center rounded-lg border border-[hsl(220_16%_84%)] bg-white px-3 text-xs font-semibold text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
-                    >
-                      Login
-                    </a>
+                    <label className="inline-flex h-10 items-center rounded-lg border border-[hsl(220_16%_84%)] bg-white pl-2.5 pr-1.5 text-[11px] font-medium text-[hsl(222_47%_20%)]">
+                      <span className="mr-1 text-[11px] leading-[1] text-[hsl(222_47%_20%)]">Market</span>
+                      <span className="relative inline-flex items-center">
+                        <select
+                          value={market}
+                          onChange={(e) => setMarket(e.target.value)}
+                          className="h-8 w-[84px] appearance-none border-0 bg-transparent pl-1 pr-4 text-[11px] font-medium leading-5 text-[hsl(222_47%_20%)] focus:outline-none"
+                          aria-label="Select market"
+                        >
+                          <option value="dk">DK (DKK)</option>
+                          <option value="se">SE (SEK)</option>
+                          <option value="fi">FI (EUR)</option>
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-0.5 h-3.5 w-3.5 text-[hsl(220_12%_50%)]" />
+                      </span>
+                    </label>
                   )}
                   <div className="relative" ref={menuRef}>
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[hsl(220_16%_84%)] bg-white text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[hsl(220_16%_84%)] bg-white text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
                       aria-label="Open menu"
                       title="Menu"
                     >
@@ -1415,25 +1685,24 @@ function App() {
                     {menuOpen && (
                       <div className="absolute right-0 top-11 z-50 w-[296px] rounded-xl border border-[hsl(220_16%_84%)] bg-white p-4 shadow-[0_12px_30px_rgb(18_32_74/0.18)]">
                         <div className="space-y-4 text-[13px] text-[hsl(222_47%_18%)]">
-                          {isMobileViewport && (
-                            <section>
-                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[hsl(220_12%_46%)]">Account</p>
-                              <a
-                                href="https://app.eanrunner.com/"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center rounded-md border border-[hsl(220_16%_84%)] bg-[hsl(220_18%_98%)] px-2.5 py-1 text-[12px] font-semibold text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
-                                onClick={() => setMenuOpen(false)}
-                              >
-                                Login
-                              </a>
-                            </section>
-                          )}
+                          <section>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[hsl(220_12%_46%)]">Account</p>
+                            <a
+                              href="https://app.eanrunner.com/"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center rounded-md border border-[hsl(220_16%_84%)] bg-[hsl(220_18%_98%)] px-2.5 py-1 text-[12px] font-semibold text-[hsl(222_47%_20%)] hover:bg-[hsl(220_18%_95%)]"
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              Login
+                            </a>
+                          </section>
                           <section>
                             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[hsl(220_12%_46%)]">Explore</p>
                             <div className="flex flex-col gap-1 text-[13px] leading-6">
                               <Link to="/for-retailers" className="hover:underline" onClick={() => setMenuOpen(false)}>For Retailers</Link>
                               <Link to="/for-distributors" className="hover:underline" onClick={() => setMenuOpen(false)}>For Distributors</Link>
+                              <Link to="/pricing" className="hover:underline" onClick={() => setMenuOpen(false)}>Pricing</Link>
                               <Link to="/about-us" className="hover:underline" onClick={() => setMenuOpen(false)}>About us</Link>
                               <Link to="/how-it-works" className="hover:underline" onClick={() => setMenuOpen(false)}>How it works</Link>
                               <Link to="/work-with-us" className="hover:underline" onClick={() => setMenuOpen(false)}>Small team. Big network.</Link>
@@ -1500,9 +1769,9 @@ function App() {
                       onChange={(e) => setMarket(e.target.value)}
                       className="w-full rounded-md border border-[hsl(220_14%_89%)] bg-white px-3 py-2 text-xs text-[hsl(222_47%_8%)]"
                     >
+                      <option value="fi">FI</option>
                       <option value="dk">DK</option>
                       <option value="se">SE</option>
-                      <option value="fi">FI</option>
                     </select>
                   </label>
 
@@ -1529,7 +1798,7 @@ function App() {
                                 setSelectedCategory(joinFilterValues([...next]));
                               }}
                             />
-                            <span className="truncate">{item.name}</span>
+                            <span className="truncate">{formatCategoryDisplayName(item.name)}</span>
                           </label>
                         );
                       })}
@@ -1561,9 +1830,6 @@ function App() {
                                 const next = new Set(selectedBrandValues);
                                 if (e.target.checked) next.add(brand); else next.delete(brand);
                                 setSelectedBrand(joinFilterValues([...next]));
-                                if (decodedRouteBrand.trim()) {
-                                  navigate('/');
-                                }
                               }}
                             />
                             <span className="truncate">{brand}</span>
@@ -1704,7 +1970,9 @@ function App() {
                           setSelectedCategory('');
                           setBrandFilter('');
                           setKeyword('');
-                          setMarket('dk');
+                            setCategorySearchTerm('');
+                            setBrandSearchTerm('');
+                          setMarket(DEFAULT_MARKET);
                           setInStockOnly(true);
                           setHasPictureOnly(false);
                           setSelectedGrades(new Set());
@@ -1729,7 +1997,7 @@ function App() {
 
             {shouldClusterByBrand ? (
               <div className="space-y-4">
-                {!loading && brandGroups.length === 0 && !error && (
+                {!loading && brandGroups.length === 0 && !error && hasActiveResultFilters && (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
                     <Search className="w-10 h-10 text-[hsl(220_12%_70%)] mb-3" />
                     <p className="text-sm font-medium text-[hsl(222_47%_8%)]">No products found</p>
@@ -1829,22 +2097,6 @@ function App() {
                         <span className="intro-bigmark__bar intro-bigmark__bar--3" />
                       </div>
                       <div className="relative z-10 flex h-full flex-col">
-                        <button
-                          type="button"
-                          onClick={() => setShowIntroCard(false)}
-                          className="absolute right-0 top-0 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white hover:bg-white/20"
-                          aria-label="Close introduction"
-                          title="Close"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-
-                        <img
-                          src="/marketing/logo-ean.png"
-                          alt="EANrunner"
-                          className="h-6 w-auto self-start object-contain brightness-0 invert"
-                        />
-
                         <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9bb8ff]">Product data platform</p>
                         <p className="mt-2 text-[19px] font-bold leading-[1.06] text-white sm:text-[24px] xl:text-[26px]">
                           All supplier products,
@@ -1913,6 +2165,7 @@ function App() {
                           <div key={product.ean} className="flex w-[156px] shrink-0 snap-start [&>div]:h-full [&>div]:w-full">
                             <ProductCard
                               product={product}
+                              market={market}
                               compact
                               eagerImage={groupIndex === 0 && index < ABOVE_THE_FOLD_PRIORITY_COUNT}
                             />
@@ -1943,6 +2196,7 @@ function App() {
                           <ProductCard
                             key={product.ean}
                             product={product}
+                            market={market}
                             compact
                             eagerImage={groupIndex === 0 && index < ABOVE_THE_FOLD_PRIORITY_COUNT}
                           />
@@ -1954,7 +2208,7 @@ function App() {
                   );
                 })}
 
-                {brandGroups.length < brandClusterTotalBrands && (
+                {brandGroups.length > 0 && brandGroups.length < brandClusterTotalBrands && (
                   <div className="space-y-2 pt-1 pb-2">
                     <div className="flex items-center justify-center gap-3">
                       <button
@@ -1996,7 +2250,7 @@ function App() {
               </div>
             ) : (
               <>
-                {!loading && visibleProducts.length === 0 && !error && (
+                {!loading && visibleProducts.length === 0 && !error && hasActiveResultFilters && (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
                     <Search className="w-10 h-10 text-[hsl(220_12%_70%)] mb-3" />
                     <p className="text-sm font-medium text-[hsl(222_47%_8%)]">No products found</p>
@@ -2008,14 +2262,19 @@ function App() {
 
                 {viewMode === 'grid' ? (
                   <div className={`grid gap-2 ${isMobileViewport ? 'grid-cols-2' : '[grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]'}`}>
-                    {visibleProducts.map((product, index) => (
-                      <ProductCard
-                        key={product.ean}
-                        product={product}
-                        compact
-                        eagerImage={index < ABOVE_THE_FOLD_PRIORITY_COUNT}
-                      />
-                    ))}
+                    {shouldShowGridSkeletons
+                      ? Array.from({ length: skeletonCount }).map((_, index) => (
+                        <ProductCardSkeleton key={`skeleton-${index}`} compact />
+                      ))
+                      : visibleProducts.map((product, index) => (
+                        <ProductCard
+                          key={product.ean}
+                          product={product}
+                          market={market}
+                          compact
+                          eagerImage={index < ABOVE_THE_FOLD_PRIORITY_COUNT}
+                        />
+                      ))}
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-lg border border-[hsl(220_14%_89%)] bg-white">
@@ -2028,7 +2287,6 @@ function App() {
                           <th className="px-3 py-2 font-semibold">Stock</th>
                           <th className="px-3 py-2 font-semibold">Competition</th>
                           <th className="px-3 py-2 font-semibold">Margin</th>
-                          <th className="px-3 py-2 font-semibold">Market</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2041,7 +2299,7 @@ function App() {
                               <td className="px-3 py-2 font-mono text-[11px]">{product.ean}</td>
                               <td className="px-3 py-2">{product.brand || '—'}</td>
                               <td className="max-w-[520px] px-3 py-2">
-                                <Link to={`/product/${encodeURIComponent(product.ean)}`} className="line-clamp-1 hover:underline">
+                                <Link to={`/product/${encodeURIComponent(product.ean)}?market=${encodeURIComponent(market)}`} className="line-clamp-1 hover:underline">
                                   {product.title}
                                 </Link>
                               </td>
@@ -2050,19 +2308,6 @@ function App() {
                                 <span className={hot.chiliColor}>{'🌶'.repeat(hot.chiliCount)}</span>
                               </td>
                               <td className="px-3 py-2">{rangeLabel ?? 'Not available'}</td>
-                              <td className="px-3 py-2">
-                                {product.cheapestMarketLink ? (
-                                  <a href={product.cheapestMarketLink} target="_blank" rel="noreferrer" className="font-medium text-[hsl(221_92%_45%)] hover:underline">
-                                    {product.marketPrice != null
-                                      ? (product.marketCurrency === 'DKK' || product.marketCurrency === 'SEK'
-                                          ? `${Math.round(product.marketPrice)} kr`
-                                          : `€${product.marketPrice.toFixed(0)}`)
-                                      : 'Open'}
-                                  </a>
-                                ) : (
-                                  <span className="text-[hsl(220_12%_50%)]">—</span>
-                                )}
-                              </td>
                             </tr>
                           );
                         })}
@@ -2085,9 +2330,11 @@ function App() {
                     {loading ? 'Loading…' : `Load ${LIST_LOAD_MORE_BATCH_SIZE} more`}
                   </button>
                 )}
-                <span className="text-xs text-[hsl(220_12%_45%)]">
-                  Loaded {visibleProducts.length.toLocaleString()} of {totalProducts.toLocaleString()} products
-                </span>
+                {!loading && (
+                  <span className="text-xs text-[hsl(220_12%_45%)]">
+                    {`Showing ${visibleProducts.length.toLocaleString()} of ${totalProducts.toLocaleString()} products`}
+                  </span>
+                )}
               </div>
             )}
 

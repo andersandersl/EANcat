@@ -6,9 +6,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function ContactPage() {
   useDocumentMeta({
-    title: 'Contact',
+    title: 'Contact EANrunner',
     description:
-      'Get in touch with EANrunner. Email us at info@eanrunner.com or request access to start serving more products in your shop.',
+      'Contact EANrunner for retailer onboarding, distributor partnerships, pricing questions, or product catalog support.',
     path: '/contact',
   });
 

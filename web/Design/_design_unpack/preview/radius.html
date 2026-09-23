@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+  body { padding: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 8px;
+    align-items: center;
+  }
+  .square { width: 80px; height: 80px; background: hsl(var(--accent)); border: 1px solid hsl(221 92% 55% / 0.3); }
+  .s-sm { border-radius: 4px; }
+  .s-md { border-radius: 6px; }
+  .s-lg { border-radius: 8px; }
+  .s-full { border-radius: 9999px; }
+  .label { font: var(--type-body-strong); }
+  .meta  { font: var(--type-mono); font-size: 11px; color: hsl(var(--muted-foreground)); text-align: center; }
+</style>
+</head><body>
+  <div class="grid">
+    <div class="tile">
+      <div class="square s-sm"></div>
+      <div class="label">sm · 4px</div>
+      <div class="meta">table chips · margin pill</div>
+    </div>
+    <div class="tile">
+      <div class="square s-md"></div>
+      <div class="label">md · 6px</div>
+      <div class="meta">nested chrome · status pill</div>
+    </div>
+    <div class="tile">
+      <div class="square s-lg"></div>
+      <div class="label">lg · 8px</div>
+      <div class="meta">Card · Button · Input · Select</div>
+    </div>
+    <div class="tile">
+      <div class="square s-full"></div>
+      <div class="label">full · ∞</div>
+      <div class="meta">FilterChip · CountryToggle · FeedStatus</div>
+    </div>
+  </div>
+</body></html>

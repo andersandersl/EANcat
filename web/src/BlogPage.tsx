@@ -7,9 +7,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 export default function BlogPage() {
   useDocumentMeta({
-    title: 'Blog',
+    title: 'EANrunner Blog',
     description:
-      'News and updates from EANrunner — product launches, milestones, and practical learnings from building structured cross-border commerce.',
+      'Read EANrunner updates, product launches, and practical insights on structured product data and cross-border ecommerce operations.',
     path: '/blog',
   });
 
