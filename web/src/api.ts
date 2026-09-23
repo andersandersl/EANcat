@@ -30,10 +30,10 @@ async function readJson<T>(path: string): Promise<T> {
   return payload as T;
 }
 
-async function postJson<T>(path: string, body: unknown): Promise<T> {
+async function postSameOriginJson<T>(path: string, body: unknown): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -123,16 +123,15 @@ export function getProductByEan(ean: string, market = 'fi'): Promise<ProductDeta
 }
 
 export function scanOpportunityShop(url: string): Promise<OpportunityScanResponse> {
-  return postJson<OpportunityScanResponse>('/api/public/opportunity-scan', { url });
+  return postSameOriginJson<OpportunityScanResponse>('/api/public/opportunity-scan', { url });
 }
 
 export function loadMoreOpportunityProducts(scanId: string, offset: number): Promise<OpportunityScanPageResponse> {
-  const params = new URLSearchParams({ offset: String(offset) });
-  return readJson<OpportunityScanPageResponse>(`/api/public/opportunity-scan/${encodeURIComponent(scanId)}?${params.toString()}`);
+  return postSameOriginJson<OpportunityScanPageResponse>('/api/public/opportunity-scan-page', { scanId, offset });
 }
 
 export function requestSupplierConnection(payload: SupplierConnectionPayload): Promise<{ requestId: string; status: 'accepted' }> {
-  return postJson<{ requestId: string; status: 'accepted' }>('/api/public/supplier-connection', payload);
+  return postSameOriginJson<{ requestId: string; status: 'accepted' }>('/api/public/supplier-connection', payload);
 }
 
 export function getSearchSuggestions(

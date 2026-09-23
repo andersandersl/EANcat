@@ -50,9 +50,9 @@ The public catalog shows, per market (DK/SE/FI):
 - `GET /api/public/brand-clusters`
 - `GET /api/public/categories`
 - `GET /api/public/stats`
-- `POST /api/public/opportunity-scan`
-- `GET /api/public/opportunity-scan/:scanId?offset=`
-- `POST /api/public/supplier-connection`
+- `POST /api/public/opportunity-scan` (Vercel Function in `web/api`)
+- `POST /api/public/opportunity-scan-page` (Vercel Function in `web/api`)
+- `POST /api/public/supplier-connection` (Vercel Function in `web/api`)
 
 ## Opportunity Finder
 
@@ -60,15 +60,16 @@ The public catalog shows, per market (DK/SE/FI):
 
 ### Local setup
 
-1. Configure the public catalogue variables in `api/.env` as described above.
-2. Set `EANRUNNER_OPPORTUNITY_API_URL` and `EANRUNNER_OPPORTUNITY_API_TOKEN` to the authenticated private EANrunner introduction endpoint. Do not expose either value in the web app.
-3. Run `npm --prefix api run dev` and `npm --prefix web run dev`, then visit `/opportunity-finder`.
+1. For the normal catalogue API, configure `api/.env` as described above and run `npm --prefix api run dev`.
+2. For Opportunity Finder, set `EANCAT_PUBLIC_API_BASE` in the Vercel project only if the default public API base needs to change.
+3. Set `EANRUNNER_OPPORTUNITY_API_URL` and `EANRUNNER_OPPORTUNITY_API_TOKEN` in Vercel to enable the private supplier-introduction handoff. Do not expose either value as `VITE_` variables.
+4. Run `npm --prefix web run dev`, or use Vercel local development for the `web/api` functions, then visit `/opportunity`.
 
 ### Scan and privacy boundaries
 
-Scans run only on the API. The scanner accepts public `http`/`https` URLs, resolves and pins public DNS addresses for every request and redirect, and rejects local, private, reserved, and cloud-metadata address ranges. It uses a small budget: up to eight public pages, three redirects, 5 MB for the initial page, 512 KB per additional HTML/sitemap response, seven seconds per request, and twenty seconds in total. It observes accessible public pages only; it does not bypass robots restrictions, authentication, CAPTCHAs, or bot protection.
+Opportunity Finder scans run as Vercel Functions under `web/api` so the finder can deploy with the frontend; no Azure deployment is required for these endpoints. The functions use the existing public EANcat API as a read-only source for product categories and products. The scanner accepts public `http`/`https` URLs, resolves and pins public DNS addresses for every request and redirect, and rejects local, private, reserved, and cloud-metadata address ranges. It uses a small budget: up to eight public pages, three redirects, 5 MB for the initial page, 512 KB per additional HTML/sitemap response, seven seconds per request, and twenty seconds in total. It observes accessible public pages only; it does not bypass robots restrictions, authentication, CAPTCHAs, or bot protection.
 
-The finder extracts public structured data, EAN/GTIN values, category/brand labels, and locale/currency hints. It infers DK, SE, or FI, prioritizes repeated product-category signals and retailer navigation categories, and maps the strongest matching category to `dbo.showcase_product` first. It excludes detected EANs, then adds one lower-priority category at a time only while fewer than ten opportunities have been found. The initial response shows up to ten in-stock products; when available, **Load more** retrieves up to ten further stored results from the same scan. It requires in-stock products and deterministically prefers margin grades A/B (using grade C only when few stronger matches exist). The displayed expected margin is an estimate derived from the public market price and margin grade, not a supplier quote. Responses contain only public-safe catalogue fields; they never expose supplier identities, costs, exact margins, or private matching data.
+The finder extracts public structured data, EAN/GTIN values, category/brand labels, and locale/currency hints. It infers DK, SE, or FI, prioritizes repeated product-category signals and retailer navigation categories, and maps the strongest matching category against public catalogue categories first. It excludes detected EANs, then adds one lower-priority category at a time only while fewer than ten opportunities have been found. The initial response shows up to ten in-stock products; when available, **Load more** retrieves up to ten further stored results from the same scan. It requires in-stock products and deterministically prefers margin grades A/B (using grade C only when few stronger matches exist). The displayed expected margin is an estimate derived from the public market price and margin grade, not a supplier quote. Responses contain only public-safe catalogue fields; they never expose supplier identities, costs, exact margins, or private matching data.
 
 ### Private handoff contract
 
