@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   combineCategoryOpportunities,
+  diversifyOpportunities,
   extractHtmlSignals,
   inferMarket,
   isAllowedByRobots,
@@ -125,6 +126,24 @@ test('maps categories, excludes detected EANs, and ranks stably', () => {
   ], signals, categories);
   assert.deepEqual(results.map((item) => item.ean), ['5700000000002', '5700000000003']);
   assert.match(results[0].reason, /Outdoor lighting/);
+});
+
+test('rotates brands and limits the first results to two products per brand when possible', () => {
+  const opportunities = ['Alpha', 'Alpha', 'Alpha', 'Beta', 'Beta', 'Beta', 'Gamma', 'Gamma', 'Gamma', 'Delta', 'Delta', 'Delta']
+    .map((brand, index) => ({ ...opportunity(`ean-${index}`), brand }));
+
+  const results = diversifyOpportunities(opportunities, 8);
+  assert.deepEqual(results.map((item) => item.brand), ['Alpha', 'Beta', 'Gamma', 'Delta', 'Alpha', 'Beta', 'Gamma', 'Delta']);
+  for (const brand of new Set(results.map((item) => item.brand))) {
+    assert.equal(results.filter((item) => item.brand === brand).length, 2);
+  }
+});
+
+test('uses additional products from existing brands only when needed to fill the result limit', () => {
+  const opportunities = ['Alpha', 'Alpha', 'Alpha', 'Beta']
+    .map((brand, index) => ({ ...opportunity(`ean-${index}`), brand }));
+
+  assert.deepEqual(diversifyOpportunities(opportunities, 4).map((item) => item.ean), ['ean-0', 'ean-3', 'ean-1', 'ean-2']);
 });
 
 test('adds secondary categories only when the primary category is below the target', () => {

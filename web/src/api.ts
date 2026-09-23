@@ -122,8 +122,12 @@ export function getProductByEan(ean: string, market = 'fi'): Promise<ProductDeta
   return readJson<ProductDetailResponse>(`/api/public/products/${encodeURIComponent(ean)}?${params.toString()}`);
 }
 
-export function scanOpportunityShop(url: string): Promise<OpportunityScanResponse> {
-  return postJson<OpportunityScanResponse>('/api/public/opportunity-scan', { url });
+export function scanOpportunityShop(url: string, market: 'dk' | 'se' | 'fi'): Promise<OpportunityScanResponse> {
+  return postJson<OpportunityScanResponse>('/api/public/opportunity-scan', { url, market });
+}
+
+export function getOpportunityScanResult(scanId: string): Promise<OpportunityScanResponse> {
+  return readJson<OpportunityScanResponse>(`/api/public/opportunity-scan/${encodeURIComponent(scanId)}/result`);
 }
 
 export function loadMoreOpportunityProducts(scanId: string, offset: number): Promise<OpportunityScanPageResponse> {
