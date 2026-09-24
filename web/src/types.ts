@@ -92,9 +92,6 @@ export type OpportunityScanPageResponse = {
 
 export type SupplierConnectionPayload = {
   scanId: string;
-  shopUrl: string;
-  market: 'DK' | 'SE' | 'FI';
   selectedEans: string[];
-  contact: { name: string; email: string; company: string; phone?: string };
-  consent: true;
+  contact: { name: string; email: string };
 };

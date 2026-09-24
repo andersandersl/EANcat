@@ -7,9 +7,9 @@ import { useDocumentMeta } from './useDocumentMeta';
 
 type FinderState = 'initial' | 'scanning' | 'results' | 'error' | 'submitting' | 'success';
 
-type Contact = { name: string; email: string; company: string; phone: string; consent: boolean };
+type Contact = { name: string; email: string };
 
-const initialContact: Contact = { name: '', email: '', company: '', phone: '', consent: false };
+const initialContact: Contact = { name: '', email: '' };
 const COUNTRIES = [
   { code: 'se', label: 'Sweden' },
   { code: 'dk', label: 'Denmark' },
@@ -36,6 +36,16 @@ function parseOpportunityPath(pathname: string): { country: CountryCode; scanId:
     scanId: hasCountry ? parts[opportunityIndex + 1] ?? null : null,
     hasCountry,
   };
+}
+
+function selectedEansFromSearch(search: string): Set<string> {
+  const value = new URLSearchParams(search).get('selected') ?? '';
+  return new Set(value.split(',').map((ean) => ean.trim()).filter((ean) => /^\d{8,14}$/.test(ean)).slice(0, 20));
+}
+
+function selectedEansSearch(selectedEans: Set<string>): string {
+  const values = [...selectedEans];
+  return values.length > 0 ? `?${new URLSearchParams({ selected: values.join(',') }).toString()}` : '';
 }
 
 function isLikelyUrl(value: string): boolean {
@@ -95,6 +105,10 @@ export default function OpportunityFinderPage() {
     () => scan?.opportunities.filter((item) => !category || item.category === category) ?? [],
     [category, scan],
   );
+  const selectedProducts = useMemo(
+    () => scan?.opportunities.filter((item) => selectedEans.has(item.ean)) ?? [],
+    [scan, selectedEans],
+  );
 
   useEffect(() => {
     if (!route.hasCountry) {
@@ -113,6 +127,9 @@ export default function OpportunityFinderPage() {
         }
         setScan(result);
         setShopUrl(result.shop.url);
+        setSelectedEans(new Set(
+          [...selectedEansFromSearch(location.search)].filter((ean) => result.opportunities.some((product) => product.ean === ean)),
+        ));
         setCategory('');
         setState('results');
       })
@@ -125,7 +142,7 @@ export default function OpportunityFinderPage() {
     return () => {
       active = false;
     };
-  }, [navigate, route.country, route.scanId, scan?.scanId]);
+  }, [location.search, navigate, route.country, route.scanId, scan?.scanId]);
 
   const runScan = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -170,12 +187,16 @@ export default function OpportunityFinderPage() {
   };
 
   const toggleSelection = (ean: string) => {
-    setSelectedEans((current) => {
-      const next = new Set(current);
-      if (next.has(ean)) next.delete(ean);
-      else next.add(ean);
-      return next;
-    });
+    const next = new Set(selectedEans);
+    if (next.has(ean)) next.delete(ean);
+    else next.add(ean);
+    setSelectedEans(next);
+    if (scan) {
+      navigate({
+        pathname: opportunityPath(route.country, scan.scanId),
+        search: selectedEansSearch(next),
+      }, { replace: true });
+    }
   };
 
   const loadMore = async () => {
@@ -200,22 +221,19 @@ export default function OpportunityFinderPage() {
 
   const submitConnection = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!scan || selectedEans.size === 0 || !contact.consent) return;
+    if (!scan || selectedEans.size === 0) return;
     setState('submitting');
     setError('');
     try {
       await requestSupplierConnection({
         scanId: scan.scanId,
-        shopUrl: scan.shop.url,
-        market: scan.market.code,
         selectedEans: [...selectedEans],
-        contact: { name: contact.name, email: contact.email, company: contact.company, ...(contact.phone ? { phone: contact.phone } : {}) },
-        consent: true,
+        contact,
       });
       setState('success');
     } catch (requestError) {
       setState('results');
-      setError(requestError instanceof Error ? requestError.message : 'We could not send your introduction request. Please try again.');
+      setError(requestError instanceof Error ? requestError.message : 'We could not send your enquiry. Please try again.');
     }
   };
 
@@ -343,7 +361,9 @@ export default function OpportunityFinderPage() {
                   {resultCategories.map((item) => <button key={item} type="button" onClick={() => setCategory(item)} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${category === item ? 'bg-[hsl(222_47%_14%)] text-white' : 'border border-[hsl(220_16%_84%)] bg-white text-[hsl(220_14%_35%)]'}`}>{item}</button>)}
                 </div>
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                  <div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {visibleOpportunities.map((opportunity) => {
                     const selected = selectedEans.has(opportunity.ean);
                     const price = formatPrice(opportunity);
@@ -368,57 +388,65 @@ export default function OpportunityFinderPage() {
                           {price && <p className="mt-3 text-sm font-semibold text-[hsl(222_47%_17%)]">Market price: {price}</p>}
                           {margin && <p className="mt-1 text-sm font-semibold text-[hsl(145_55%_27%)]">Expected margin: {margin}</p>}
                           {margin && <p className="mt-1 text-xs leading-relaxed text-[hsl(220_14%_42%)]">Estimate based on market price and margin grade; supplier quotes may vary.</p>}
-                          <p className="mt-3 text-sm leading-relaxed text-[hsl(220_14%_42%)]">{opportunity.reason}</p>
                         </div>
                       </article>
                     );
                   })}
-                </div>
-                {scan.hasMore && (
-                  <div className="mt-7 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={loadMore}
-                      disabled={isLoadingMore}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[hsl(145_55%_34%)] bg-white px-5 text-sm font-bold text-[hsl(145_55%_28%)] transition hover:bg-[hsl(145_44%_96%)] disabled:cursor-wait disabled:opacity-70"
-                    >
-                      {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                      {isLoadingMore ? 'Loading more' : 'Load more'}
-                    </button>
+                    </div>
+                    {scan.hasMore && (
+                      <div className="mt-7 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={loadMore}
+                          disabled={isLoadingMore}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[hsl(145_55%_34%)] bg-white px-5 text-sm font-bold text-[hsl(145_55%_28%)] transition hover:bg-[hsl(145_44%_96%)] disabled:cursor-wait disabled:opacity-70"
+                        >
+                          {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                          {isLoadingMore ? 'Loading more' : 'Load more'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  <aside className="h-fit rounded-2xl border border-[hsl(145_38%_73%)] bg-[hsl(145_44%_96%)] p-5 lg:sticky lg:top-4">
+                    <h3 className="text-lg font-bold">Selected products</h3>
+                    <p className="mt-1 text-sm text-[hsl(220_14%_39%)]">{selectedProducts.length} selected product{selectedProducts.length === 1 ? '' : 's'}.</p>
+                    {selectedProducts.length === 0 ? (
+                      <p className="mt-4 text-sm leading-relaxed text-[hsl(220_14%_42%)]">Select products to create a shortlist and tell EANrunner what interests you.</p>
+                    ) : (
+                      <>
+                        <ul className="mt-4 space-y-3" aria-label="Selected products">
+                          {selectedProducts.map((product) => (
+                            <li key={product.ean} className="flex items-start justify-between gap-3 rounded-lg bg-white p-3 text-sm">
+                              <span className="min-w-0"><strong className="block truncate">{product.brand || 'Catalogue product'}</strong><span className="block truncate text-[hsl(220_14%_42%)]">{product.title}</span></span>
+                              <button type="button" onClick={() => toggleSelection(product.ean)} className="shrink-0 font-semibold text-[hsl(145_55%_28%)] hover:underline">Remove</button>
+                            </li>
+                          ))}
+                        </ul>
+                        <form onSubmit={submitConnection} className="mt-5 border-t border-[hsl(145_38%_73%)] pt-5">
+                          <p className="text-sm font-semibold">Get access to EANrunner</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[hsl(220_14%_42%)]">Share your details and EANrunner will follow up about onboarding to app.eanrunner.com.</p>
+                          <label className="mt-4 block text-sm font-semibold">Name<input required autoComplete="name" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
+                          <label className="mt-3 block text-sm font-semibold">Business email<input required type="email" autoComplete="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
+                          <button type="submit" disabled={state === 'submitting'} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[hsl(145_55%_34%)] px-4 text-sm font-bold text-white hover:bg-[hsl(145_55%_28%)] disabled:cursor-wait disabled:opacity-70">
+                            {state === 'submitting' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{state === 'submitting' ? 'Sending enquiry' : 'Request onboarding'}
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </aside>
+                </div>
               </>
             )}
 
-            {selectedEans.size > 0 && (
-              <form onSubmit={submitConnection} className="mt-8 rounded-2xl border border-[hsl(145_38%_73%)] bg-[hsl(145_44%_96%)] p-5 sm:p-6">
-                <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-                  <div>
-                    <h3 className="text-xl font-bold">Connect me with suppliers</h3>
-                    <p className="mt-1 text-sm text-[hsl(220_14%_39%)]">{selectedEans.size} selected product{selectedEans.size === 1 ? '' : 's'}. EANrunner will arrange the requested introduction.</p>
-                  </div>
-                  <span className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-[hsl(145_55%_28%)]"><Check className="h-4 w-4" aria-hidden="true" /> Your choices stay in control</span>
-                </div>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm font-semibold">Contact name<input required value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                  <label className="text-sm font-semibold">Business email<input required type="email" autoComplete="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                  <label className="text-sm font-semibold">Company name<input required autoComplete="organization" value={contact.company} onChange={(event) => setContact({ ...contact, company: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                  <label className="text-sm font-semibold">Phone <span className="font-normal text-[hsl(220_12%_47%)]">(optional)</span><input type="tel" autoComplete="tel" value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                </div>
-                <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-[hsl(220_14%_37%)]"><input required type="checkbox" checked={contact.consent} onChange={(event) => setContact({ ...contact, consent: event.target.checked })} className="mt-0.5 h-4 w-4 accent-[hsl(145_55%_34%)]" />I consent to EANrunner using this information to arrange the requested supplier introduction.</label>
-                <button type="submit" disabled={state === 'submitting'} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[hsl(145_55%_34%)] px-5 text-sm font-bold text-white hover:bg-[hsl(145_55%_28%)] disabled:cursor-wait disabled:opacity-70">
-                  {state === 'submitting' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{state === 'submitting' ? 'Sending request' : 'Connect me with suppliers'}
-                </button>
-              </form>
-            )}
           </section>
         )}
 
         {state === 'success' && (
           <section className="mx-auto mt-12 max-w-2xl rounded-2xl border border-[hsl(145_38%_72%)] bg-[hsl(145_44%_96%)] p-8 text-center" aria-live="polite">
             <Check className="mx-auto h-10 w-10 rounded-full bg-[hsl(145_55%_34%)] p-2 text-white" aria-hidden="true" />
-            <h2 className="mt-4 text-2xl font-bold">Request received</h2>
-            <p className="mt-3 text-[hsl(220_14%_38%)]">Thank you. EANrunner has received your request and will contact the relevant suppliers.</p>
+            <h2 className="mt-4 text-2xl font-bold">Enquiry received</h2>
+            <p className="mt-3 text-[hsl(220_14%_38%)]">Thank you. EANrunner will review your selected products and contact you about onboarding to app.eanrunner.com.</p>
           </section>
         )}
 

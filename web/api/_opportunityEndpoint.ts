@@ -3,7 +3,7 @@ import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import { createIdempotencyKey, normalizeEan, OpportunityError, scanShop, matchCategories, rankOpportunities, combineCategoryOpportunities, diversifyOpportunities, type Market, type MarketConfidence, type Opportunity, type ScanSignals } from './_opportunity.js';
 import { loadCatalogCandidates, loadCatalogCategories } from './_catalog.js';
 
-export const OPPORTUNITY_PAGE_SIZE = 10;
+export const OPPORTUNITY_PAGE_SIZE = 20;
 export const MAX_STORED_OPPORTUNITIES = 20;
 
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
@@ -79,7 +79,7 @@ function decodeScanToken(scanId: string): ScanTokenPayload | null {
 }
 
 function scanTokenSecret(): string | null {
-  return process.env.OPPORTUNITY_SCAN_TOKEN_SECRET || process.env.EANRUNNER_OPPORTUNITY_API_TOKEN || null;
+  return process.env.OPPORTUNITY_SCAN_TOKEN_SECRET || process.env.RESEND_API_KEY || null;
 }
 
 function signScanToken(encodedPayload: string): string | null {
@@ -197,7 +197,7 @@ export function mapOpportunityError(error: unknown, scanCompleted = false): { st
 
 export function validateConnectionSelection(payload: {
   scanId: string;
-  market: string;
+  market?: string;
   selectedEans: string[];
 }) {
   const scan = decodeScanToken(payload.scanId);
@@ -205,7 +205,7 @@ export function validateConnectionSelection(payload: {
   if (!scan || selectedEans.length !== payload.selectedEans.length) {
     return { error: 'This scan has expired or the selected products are invalid. Please scan your shop again.' };
   }
-  if (scan.market.toUpperCase() !== payload.market) {
+  if (payload.market && scan.market.toUpperCase() !== payload.market) {
     return { error: 'The selected market does not match this scan. Please scan your shop again.' };
   }
   const opportunityEans = scan.opportunities.map((opportunity) => opportunity.ean);
