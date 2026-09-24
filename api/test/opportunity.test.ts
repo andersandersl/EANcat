@@ -139,11 +139,11 @@ test('rotates brands and limits the first results to two products per brand when
   }
 });
 
-test('uses additional products from existing brands only when needed to fill the result limit', () => {
+test('keeps the two-product brand cap when fewer results are available', () => {
   const opportunities = ['Alpha', 'Alpha', 'Alpha', 'Beta']
     .map((brand, index) => ({ ...opportunity(`ean-${index}`), brand }));
 
-  assert.deepEqual(diversifyOpportunities(opportunities, 4).map((item) => item.ean), ['ean-0', 'ean-3', 'ean-1', 'ean-2']);
+  assert.deepEqual(diversifyOpportunities(opportunities, 4).map((item) => item.ean), ['ean-0', 'ean-3', 'ean-1']);
 });
 
 test('adds secondary categories only when the primary category is below the target', () => {

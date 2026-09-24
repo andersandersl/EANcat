@@ -474,16 +474,6 @@ export function diversifyOpportunities(
     }
   }
 
-  if (diversified.length < maximumResults) {
-    const selectedEans = new Set(diversified.map((opportunity) => opportunity.ean));
-    for (const opportunity of opportunities) {
-      if (selectedEans.has(opportunity.ean)) continue;
-      diversified.push(opportunity);
-      selectedEans.add(opportunity.ean);
-      if (diversified.length >= maximumResults) break;
-    }
-  }
-
   return diversified;
 }
 
