@@ -38,6 +38,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/for-retailers" element={<ForRetailersPage />} />
           <Route path="/opportunity" element={<OpportunityFinderPage />} />
+          <Route path="/opportunity/:marketCode" element={<OpportunityFinderPage />} />
+          <Route path="/opportunity/:marketCode/:scanId" element={<OpportunityFinderPage />} />
           <Route path="/opportunity-finder" element={<Navigate to="/opportunity" replace />} />
           <Route path="/for-distributors" element={<ForDistributorsPage />} />
           <Route path="/pricing" element={<PricingPage />} />

@@ -25,6 +25,12 @@ export type Opportunity = CatalogCandidate & {
   reason: string;
 };
 
+export type CategoryMatch = {
+  sourceLabel: string;
+  catalogCategory: string;
+  confidence: number;
+};
+
 export type ScanSignals = {
   url: string;
   domain: string;
@@ -452,6 +458,41 @@ export function matchCategories(
     .slice(0, maximumMatches);
 }
 
+export function diversifyOpportunities(
+  opportunities: Opportunity[],
+  maximumResults = 24,
+  maximumPerBrand = 2,
+): Opportunity[] {
+  const brandBuckets = new Map<string, Opportunity[]>();
+  for (const opportunity of opportunities) {
+    const brandKey = normalizePhrase(opportunity.brand) || `ean:${opportunity.ean}`;
+    const bucket = brandBuckets.get(brandKey);
+    if (bucket) bucket.push(opportunity);
+    else brandBuckets.set(brandKey, [opportunity]);
+  }
+
+  const diversified: Opportunity[] = [];
+  for (let round = 0; round < maximumPerBrand && diversified.length < maximumResults; round += 1) {
+    for (const bucket of brandBuckets.values()) {
+      const opportunity = bucket[round];
+      if (opportunity) diversified.push(opportunity);
+      if (diversified.length >= maximumResults) break;
+    }
+  }
+
+  if (diversified.length < maximumResults) {
+    const selectedEans = new Set(diversified.map((opportunity) => opportunity.ean));
+    for (const opportunity of opportunities) {
+      if (selectedEans.has(opportunity.ean)) continue;
+      diversified.push(opportunity);
+      selectedEans.add(opportunity.ean);
+      if (diversified.length >= maximumResults) break;
+    }
+  }
+
+  return diversified;
+}
+
 export function rankOpportunities(candidates: CatalogCandidate[], signals: ScanSignals, categoryMatches: Array<{ sourceLabel: string; catalogCategory: string }>): Opportunity[] {
   const existingEans = new Set(signals.eans);
   const normalizedBrands = new Set(signals.brands.map(normalizePhrase).filter(Boolean));
@@ -478,7 +519,10 @@ export function rankOpportunities(candidates: CatalogCandidate[], signals: ScanS
 
   const primary = graded.filter((item) => ['A', 'B'].includes(item.candidate.marginGrade.toUpperCase()));
   const chosen = primary.length >= 12 ? primary : graded;
-  return chosen.slice(0, 24).map(({ candidate, reason }) => ({ ...candidate, reason }));
+  return diversifyOpportunities(
+    chosen.map(({ candidate, reason }) => ({ ...candidate, reason })),
+    24,
+  );
 }
 
 export function combineCategoryOpportunities(
@@ -495,11 +539,17 @@ export function combineCategoryOpportunities(
     .slice(0, maximumResults);
 }
 
-export type StoredScan = ScanSignals & { id: string; expiresAt: number; opportunityEans: string[]; opportunities: Opportunity[] };
+export type StoredScan = ScanSignals & {
+  id: string;
+  expiresAt: number;
+  opportunityEans: string[];
+  opportunities: Opportunity[];
+  categoryMatches: CategoryMatch[];
+};
 const scans = new Map<string, StoredScan>();
-const SCAN_RETENTION_MS = 30 * 60 * 1000;
+const SCAN_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-export function storeScan(signals: ScanSignals, opportunities: Opportunity[]): StoredScan {
+export function storeScan(signals: ScanSignals, opportunities: Opportunity[], categoryMatches: CategoryMatch[] = []): StoredScan {
   const now = Date.now();
   for (const [id, scan] of scans) if (scan.expiresAt <= now) scans.delete(id);
   while (scans.size >= 500) scans.delete(scans.keys().next().value as string);
@@ -509,6 +559,7 @@ export function storeScan(signals: ScanSignals, opportunities: Opportunity[]): S
     expiresAt: now + SCAN_RETENTION_MS,
     opportunityEans: [...new Set(opportunities.map((opportunity) => opportunity.ean))],
     opportunities,
+    categoryMatches,
   };
   scans.set(stored.id, stored);
   return stored;

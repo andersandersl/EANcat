@@ -452,6 +452,41 @@ export function matchCategories(
     .slice(0, maximumMatches);
 }
 
+export function diversifyOpportunities(
+  opportunities: Opportunity[],
+  maximumResults = 24,
+  maximumPerBrand = 2,
+): Opportunity[] {
+  const brandBuckets = new Map<string, Opportunity[]>();
+  for (const opportunity of opportunities) {
+    const brandKey = normalizePhrase(opportunity.brand) || `ean:${opportunity.ean}`;
+    const bucket = brandBuckets.get(brandKey);
+    if (bucket) bucket.push(opportunity);
+    else brandBuckets.set(brandKey, [opportunity]);
+  }
+
+  const diversified: Opportunity[] = [];
+  for (let round = 0; round < maximumPerBrand && diversified.length < maximumResults; round += 1) {
+    for (const bucket of brandBuckets.values()) {
+      const opportunity = bucket[round];
+      if (opportunity) diversified.push(opportunity);
+      if (diversified.length >= maximumResults) break;
+    }
+  }
+
+  if (diversified.length < maximumResults) {
+    const selectedEans = new Set(diversified.map((opportunity) => opportunity.ean));
+    for (const opportunity of opportunities) {
+      if (selectedEans.has(opportunity.ean)) continue;
+      diversified.push(opportunity);
+      selectedEans.add(opportunity.ean);
+      if (diversified.length >= maximumResults) break;
+    }
+  }
+
+  return diversified;
+}
+
 export function rankOpportunities(candidates: CatalogCandidate[], signals: ScanSignals, categoryMatches: Array<{ sourceLabel: string; catalogCategory: string }>): Opportunity[] {
   const existingEans = new Set(signals.eans);
   const normalizedBrands = new Set(signals.brands.map(normalizePhrase).filter(Boolean));
@@ -478,7 +513,10 @@ export function rankOpportunities(candidates: CatalogCandidate[], signals: ScanS
 
   const primary = graded.filter((item) => ['A', 'B'].includes(item.candidate.marginGrade.toUpperCase()));
   const chosen = primary.length >= 12 ? primary : graded;
-  return chosen.slice(0, 24).map(({ candidate, reason }) => ({ ...candidate, reason }));
+  return diversifyOpportunities(
+    chosen.map(({ candidate, reason }) => ({ ...candidate, reason })),
+    24,
+  );
 }
 
 export function combineCategoryOpportunities(

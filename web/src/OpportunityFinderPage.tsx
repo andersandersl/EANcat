@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import { ArrowRight, Check, CircleAlert, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { loadMoreOpportunityProducts, requestSupplierConnection, scanOpportunityShop } from './api';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Check, CircleAlert, Copy, Globe2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getOpportunityScanResult, loadMoreOpportunityProducts, requestSupplierConnection, scanOpportunityShop } from './api';
 import type { Opportunity, OpportunityScanResponse } from './types';
 import { useDocumentMeta } from './useDocumentMeta';
 
@@ -10,6 +10,33 @@ type FinderState = 'initial' | 'scanning' | 'results' | 'error' | 'submitting' |
 type Contact = { name: string; email: string; company: string; phone: string; consent: boolean };
 
 const initialContact: Contact = { name: '', email: '', company: '', phone: '', consent: false };
+const COUNTRIES = [
+  { code: 'se', label: 'Sweden' },
+  { code: 'dk', label: 'Denmark' },
+  { code: 'fi', label: 'Finland' },
+] as const;
+type CountryCode = typeof COUNTRIES[number]['code'];
+
+function isCountryCode(value: string | undefined): value is CountryCode {
+  return COUNTRIES.some((country) => country.code === value);
+}
+
+function opportunityPath(country: CountryCode, scanId?: string): string {
+  const prefix = window.location.hostname.toLowerCase() === 'opportunity.eanrunner.com' ? '' : '/opportunity';
+  return `${prefix}/${country}${scanId ? `/${scanId}` : ''}`;
+}
+
+function parseOpportunityPath(pathname: string): { country: CountryCode; scanId: string | null; hasCountry: boolean } {
+  const parts = pathname.split('/').filter(Boolean);
+  const opportunityIndex = parts[0] === 'opportunity' ? 1 : 0;
+  const countryPart = parts[opportunityIndex];
+  const hasCountry = isCountryCode(countryPart);
+  return {
+    country: hasCountry ? countryPart : 'se',
+    scanId: hasCountry ? parts[opportunityIndex + 1] ?? null : null,
+    hasCountry,
+  };
+}
 
 function isLikelyUrl(value: string): boolean {
   try {
@@ -44,25 +71,61 @@ function expectedMargin(opportunity: Opportunity): string | null {
 }
 
 export default function OpportunityFinderPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const route = parseOpportunityPath(location.pathname);
+
   useDocumentMeta({
     title: 'Opportunity Finder | EANrunner',
     description: 'Find relevant public-catalogue products your webshop may be missing.',
-    path: '/opportunity',
+    path: opportunityPath(route.country, route.scanId ?? undefined),
   });
 
   const [shopUrl, setShopUrl] = useState('');
-  const [state, setState] = useState<FinderState>('initial');
+  const [state, setState] = useState<FinderState>(route.scanId ? 'scanning' : 'initial');
   const [error, setError] = useState('');
   const [scan, setScan] = useState<OpportunityScanResponse | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedEans, setSelectedEans] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState('');
   const [contact, setContact] = useState<Contact>(initialContact);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const visibleOpportunities = useMemo(
     () => scan?.opportunities.filter((item) => !category || item.category === category) ?? [],
     [category, scan],
   );
+
+  useEffect(() => {
+    if (!route.hasCountry) {
+      navigate(opportunityPath('se'), { replace: true });
+    }
+  }, [navigate, route.hasCountry]);
+
+  useEffect(() => {
+    if (!route.scanId || scan?.scanId === route.scanId) return;
+    let active = true;
+    getOpportunityScanResult(route.scanId)
+      .then((result) => {
+        if (!active) return;
+        if (result.market.code.toLowerCase() !== route.country) {
+          navigate(opportunityPath(result.market.code.toLowerCase() as CountryCode, result.scanId), { replace: true });
+        }
+        setScan(result);
+        setShopUrl(result.shop.url);
+        setCategory('');
+        setState('results');
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setScan(null);
+        setState('error');
+        setError(loadError instanceof Error ? loadError.message : 'The shared result could not be loaded.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [navigate, route.country, route.scanId, scan?.scanId]);
 
   const runScan = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -76,13 +139,33 @@ export default function OpportunityFinderPage() {
     setIsLoadingMore(false);
     setSelectedEans(new Set());
     try {
-      const result = await scanOpportunityShop(shopUrl);
+      const result = await scanOpportunityShop(shopUrl, route.country);
       setScan(result);
       setCategory('');
       setState('results');
+      navigate(opportunityPath(route.country, result.scanId));
     } catch (scanError) {
       setState('error');
       setError(scanError instanceof Error ? scanError.message : 'The webshop could not be scanned. Please try again.');
+    }
+  };
+
+  const selectCountry = (country: CountryCode) => {
+    setScan(null);
+    setState('initial');
+    setError('');
+    setCategory('');
+    setSelectedEans(new Set());
+    navigate(opportunityPath(country));
+  };
+
+  const copyResultLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      setError('The result link could not be copied. Copy it from your browser address bar instead.');
     }
   };
 
@@ -151,6 +234,24 @@ export default function OpportunityFinderPage() {
 
       <main className="mx-auto w-full max-w-[1000px] px-4 pb-14 pt-12 sm:px-6 sm:pt-20">
         <section className="mx-auto max-w-[850px] text-center">
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2" aria-label="Choose country">
+            <Globe2 className="mr-1 h-4 w-4 text-[hsl(220_12%_48%)]" aria-hidden="true" />
+            {COUNTRIES.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => selectCountry(country.code)}
+                aria-pressed={route.country === country.code}
+                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                  route.country === country.code
+                    ? 'bg-[hsl(222_47%_14%)] text-white'
+                    : 'border border-[hsl(220_16%_84%)] bg-white text-[hsl(220_14%_35%)] hover:bg-[hsl(220_24%_97%)]'
+                }`}
+              >
+                {country.label}
+              </button>
+            ))}
+          </div>
           <p className="inline-flex items-center gap-2 rounded-full bg-[hsl(142_44%_95%)] px-3 py-1 text-xs font-semibold text-[hsl(145_55%_28%)]">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> EANrunner Opportunity Finder
           </p>
@@ -201,9 +302,19 @@ export default function OpportunityFinderPage() {
                     Market: <strong>{scan.market.code}</strong> ({scan.market.confidence} confidence) · {scan.coverage.pagesScanned} public page{scan.coverage.pagesScanned === 1 ? '' : 's'} scanned
                   </p>
                 </div>
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[hsl(220_14%_32%)] shadow-sm">
-                  <ShieldCheck className="h-4 w-4 text-[hsl(145_55%_34%)]" aria-hidden="true" /> Public catalogue signals only
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copyResultLink}
+                    className="inline-flex w-fit items-center gap-2 rounded-full bg-[hsl(145_55%_34%)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[hsl(145_55%_28%)]"
+                  >
+                    {linkCopied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+                    {linkCopied ? 'Link copied' : 'Copy result link'}
+                  </button>
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[hsl(220_14%_32%)] shadow-sm">
+                    <ShieldCheck className="h-4 w-4 text-[hsl(145_55%_34%)]" aria-hidden="true" /> Public catalogue signals only
+                  </span>
+                </div>
               </div>
               {scan.detectedCategories.length > 0 && (
                 <p className="mt-4 text-sm text-[hsl(220_14%_38%)]">

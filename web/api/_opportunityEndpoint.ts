@@ -1,5 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { createIdempotencyKey, normalizeEan, OpportunityError, scanShop, matchCategories, rankOpportunities, combineCategoryOpportunities, type Market, type Opportunity, type ScanSignals } from './_opportunity.js';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
+import { createIdempotencyKey, normalizeEan, OpportunityError, scanShop, matchCategories, rankOpportunities, combineCategoryOpportunities, diversifyOpportunities, type Market, type MarketConfidence, type Opportunity, type ScanSignals } from './_opportunity.js';
 import { loadCatalogCandidates, loadCatalogCategories } from './_catalog.js';
 
 export const OPPORTUNITY_PAGE_SIZE = 10;
@@ -11,26 +12,38 @@ const RATE_LIMIT_MAX_REQUESTS = 30;
 
 type CategoryMatch = ReturnType<typeof matchCategories>[number];
 type ScanTokenPayload = {
-  v: 1;
+  v: 1 | 2;
   id: string;
   exp: number;
   url: string;
   domain: string;
   market: Market;
+  marketConfidence?: MarketConfidence;
+  categoryMatches?: CategoryMatch[];
+  brands?: string[];
+  eanCount?: number;
+  pagesScanned?: number;
+  warnings?: string[];
   opportunities: Opportunity[];
 };
 
-function encodeScanToken(signals: ScanSignals, opportunities: Opportunity[]): string {
+function encodeScanToken(signals: ScanSignals, opportunities: Opportunity[], categoryMatches: CategoryMatch[]): string {
   const payload: ScanTokenPayload = {
-    v: 1,
+    v: 2,
     id: randomUUID(),
-    exp: Date.now() + 30 * 60 * 1000,
+    exp: Date.now() + 24 * 60 * 60 * 1000,
     url: signals.url,
     domain: signals.domain,
     market: signals.market,
+    marketConfidence: signals.marketConfidence,
+    categoryMatches,
+    brands: signals.brands,
+    eanCount: signals.eans.length,
+    pagesScanned: signals.pagesScanned,
+    warnings: signals.warnings,
     opportunities,
   };
-  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const encoded = deflateRawSync(Buffer.from(JSON.stringify(payload), 'utf8')).toString('base64url');
   const signature = signScanToken(encoded);
   return signature ? `${encoded}.${signature}` : encoded;
 }
@@ -39,9 +52,16 @@ function decodeScanToken(scanId: string): ScanTokenPayload | null {
   try {
     const [encoded, signature] = scanId.split('.');
     if (!encoded || !hasValidScanTokenSignature(encoded, signature)) return null;
-    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as Partial<ScanTokenPayload>;
+    const encodedBuffer = Buffer.from(encoded, 'base64url');
+    let json: string;
+    try {
+      json = inflateRawSync(encodedBuffer).toString('utf8');
+    } catch {
+      json = encodedBuffer.toString('utf8');
+    }
+    const payload = JSON.parse(json) as Partial<ScanTokenPayload>;
     if (
-      payload.v !== 1
+      ![1, 2].includes(Number(payload.v))
       || typeof payload.id !== 'string'
       || typeof payload.exp !== 'number'
       || payload.exp <= Date.now()
@@ -93,8 +113,13 @@ export function enforceOpportunityRateLimit(ip: string, scope: string): number |
   return null;
 }
 
-export async function createOpportunityScan(url: string) {
-  const signals = await scanShop(url);
+export async function createOpportunityScan(url: string, selectedMarket: Market) {
+  const inferredSignals = await scanShop(url);
+  const signals: ScanSignals = {
+    ...inferredSignals,
+    market: selectedMarket,
+    marketConfidence: 'high',
+  };
   const market = signals.market as Market;
   const catalogCategories = await loadCatalogCategories(market);
   const primaryCategoryMatches = matchCategories(signals.categories, catalogCategories);
@@ -117,9 +142,10 @@ export async function createOpportunityScan(url: string) {
     if (!hadInitialPage) categoryMatches.push(categoryMatch);
   }
 
+  opportunities = diversifyOpportunities(opportunities, MAX_STORED_OPPORTUNITIES);
   const initialOpportunities = opportunities.slice(0, OPPORTUNITY_PAGE_SIZE);
   return {
-    scanId: encodeScanToken(signals, opportunities),
+    scanId: encodeScanToken(signals, opportunities, categoryMatches),
     shop: { url: signals.url, domain: signals.domain },
     market: { code: signals.market.toUpperCase(), confidence: signals.marketConfidence },
     detectedCategories: categoryMatches,
@@ -128,6 +154,24 @@ export async function createOpportunityScan(url: string) {
     coverage: { pagesScanned: signals.pagesScanned, isPartial: signals.warnings.length > 0, warnings: signals.warnings },
     opportunities: initialOpportunities,
     hasMore: opportunities.length > initialOpportunities.length,
+  };
+}
+
+export function getOpportunityResult(scanId: string) {
+  const stored = decodeScanToken(scanId);
+  if (!stored) return null;
+  const initialOpportunities = stored.opportunities.slice(0, OPPORTUNITY_PAGE_SIZE);
+  const warnings = stored.warnings ?? [];
+  return {
+    scanId,
+    shop: { url: stored.url, domain: stored.domain },
+    market: { code: stored.market.toUpperCase(), confidence: stored.marketConfidence ?? 'high' },
+    detectedCategories: stored.categoryMatches ?? [],
+    detectedBrands: stored.brands ?? [],
+    detectedEanCount: stored.eanCount ?? 0,
+    coverage: { pagesScanned: stored.pagesScanned ?? 0, isPartial: warnings.length > 0, warnings },
+    opportunities: initialOpportunities,
+    hasMore: stored.opportunities.length > initialOpportunities.length,
   };
 }
 

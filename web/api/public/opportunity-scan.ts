@@ -1,10 +1,18 @@
 import { clientIp, methodNotAllowed, readJsonBody, type VercelRequest, type VercelResponse } from '../_http.js';
 import { createOpportunityScan, enforceOpportunityRateLimit, mapOpportunityError } from '../_opportunityEndpoint.js';
 
-function parseScanUrl(body: unknown): string | null {
+function parseScanRequest(body: unknown): { url: string; market: 'dk' | 'se' | 'fi' } | null {
   if (!body || typeof body !== 'object') return null;
-  const url = (body as { url?: unknown }).url;
-  return typeof url === 'string' && url.trim().length > 0 && url.length <= 2048 ? url : null;
+  const { url, market } = body as { url?: unknown; market?: unknown };
+  if (
+    typeof url !== 'string'
+    || url.trim().length === 0
+    || url.length > 2048
+    || !['dk', 'se', 'fi'].includes(String(market))
+  ) {
+    return null;
+  }
+  return { url, market: market as 'dk' | 'se' | 'fi' };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -22,12 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let scanCompleted = false;
   try {
-    const url = parseScanUrl(await readJsonBody(req));
-    if (!url) {
-      res.status(400).json({ code: 'INVALID_REQUEST', error: 'Enter a valid webshop URL.' });
+    const request = parseScanRequest(await readJsonBody(req));
+    if (!request) {
+      res.status(400).json({ code: 'INVALID_REQUEST', error: 'Enter a valid webshop URL and country.' });
       return;
     }
-    const scan = await createOpportunityScan(url);
+    const scan = await createOpportunityScan(request.url, request.market);
     scanCompleted = true;
     res.status(200).json(scan);
   } catch (error) {

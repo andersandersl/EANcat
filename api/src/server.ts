@@ -8,6 +8,7 @@ import {
   OpportunityError,
   combineCategoryOpportunities,
   createIdempotencyKey,
+  diversifyOpportunities,
   findScan,
   matchCategories,
   normalizeEan,
@@ -184,6 +185,7 @@ const eanParamSchema = z.object({ market: z.enum(['dk', 'se', 'fi']).optional() 
 
 const opportunityScanSchema = z.object({
   url: z.string().trim().min(1).max(2048),
+  market: z.enum(['dk', 'se', 'fi']).default('se'),
 });
 
 const opportunityScanPageSchema = z.object({
@@ -1064,7 +1066,12 @@ async function main(): Promise<void> {
     console.info('[OpportunityFinder] scan requested');
     let scanCompleted = false;
     try {
-      const signals = await scanShop(parsed.data.url);
+      const inferredSignals = await scanShop(parsed.data.url);
+      const signals = {
+        ...inferredSignals,
+        market: parsed.data.market as Market,
+        marketConfidence: 'high' as const,
+      };
       scanCompleted = true;
       const pool = await getPool();
       const categoryResult = await pool.request().query<{ category: string }>(`
@@ -1121,7 +1128,8 @@ async function main(): Promise<void> {
         );
         if (!hadInitialPage) categoryMatches.push(categoryMatch);
       }
-      const stored = storeScan(signals, opportunities);
+      opportunities = diversifyOpportunities(opportunities, MAX_STORED_OPPORTUNITIES);
+      const stored = storeScan(signals, opportunities, categoryMatches);
       const initialOpportunities = opportunities.slice(0, OPPORTUNITY_PAGE_SIZE);
       console.info('[OpportunityFinder] scan completed', {
         domain: signals.domain,
@@ -1150,6 +1158,28 @@ async function main(): Promise<void> {
       const status = code === 'INVALID_URL' || code === 'UNSAFE_URL' ? 400 : code === 'SCAN_BLOCKED' ? 422 : code === 'CATALOG_UNAVAILABLE' ? 503 : 502;
       res.status(status).json({ code, error: message });
     }
+  });
+
+  // ── GET /api/public/opportunity-scan/:scanId/result ───────────────────────────
+  app.get('/api/public/opportunity-scan/:scanId/result', (req, res) => {
+    const stored = findScan(req.params.scanId);
+    if (!stored) {
+      res.status(404).json({ code: 'SCAN_EXPIRED', error: 'This shared scan has expired. Please scan the webshop again.' });
+      return;
+    }
+
+    const initialOpportunities = stored.opportunities.slice(0, OPPORTUNITY_PAGE_SIZE);
+    res.json({
+      scanId: stored.id,
+      shop: { url: stored.url, domain: stored.domain },
+      market: { code: stored.market.toUpperCase(), confidence: stored.marketConfidence },
+      detectedCategories: stored.categoryMatches,
+      detectedBrands: stored.brands,
+      detectedEanCount: stored.eans.length,
+      coverage: { pagesScanned: stored.pagesScanned, isPartial: stored.warnings.length > 0, warnings: stored.warnings },
+      opportunities: initialOpportunities,
+      hasMore: stored.opportunities.length > initialOpportunities.length,
+    });
   });
 
   // ── GET /api/public/opportunity-scan/:scanId ─────────────────────────────────
