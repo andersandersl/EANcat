@@ -42,8 +42,8 @@ type HtmlSignals = { categories: string[]; brands: string[]; eans: string[]; lan
 
 const MAX_REDIRECTS = 3;
 const MAX_INITIAL_PAGE_BYTES = 5 * 1024 * 1024;
-const MAX_PAGE_BYTES = 512 * 1024;
-const MAX_SITEMAP_BYTES = 512 * 1024;
+const MAX_PAGE_BYTES = 1024 * 1024;
+const MAX_SITEMAP_BYTES = 2 * 1024 * 1024;
 const MAX_PAGES = 8;
 const REQUEST_TIMEOUT_MS = 7_000;
 const TOTAL_SCAN_TIMEOUT_MS = 20_000;
@@ -293,8 +293,34 @@ export function inferMarket(url: URL, languages: string[], currencies: string[])
   return { market: 'dk', confidence: 'low' };
 }
 
-function parseSitemapLocations(xml: string): string[] {
-  return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((match) => match[1]).slice(0, MAX_PAGES - 1);
+type SitemapLocation = { value: string; priority: number | null };
+
+function parseSitemapLocations(xml: string): SitemapLocation[] {
+  return [...xml.matchAll(/<url>\s*([\s\S]*?)<\/url>/gi)]
+    .flatMap((entry) => {
+      const value = entry[1].match(/<loc>\s*([^<\s]+)\s*<\/loc>/i)?.[1];
+      if (!value) return [];
+      const priority = Number.parseFloat(entry[1].match(/<priority>\s*([^<\s]+)\s*<\/priority>/i)?.[1] ?? '');
+      return [{ value, priority: Number.isFinite(priority) ? priority : null }];
+    });
+}
+
+function selectSitemapPages(locations: SitemapLocation[], initialUrl: URL): URL[] {
+  const pages = locations
+    .map((location) => {
+      try {
+        return { ...location, url: new URL(location.value, initialUrl) };
+      } catch {
+        return null;
+      }
+    })
+    .filter((page): page is SitemapLocation & { url: URL } => page !== null)
+    .filter((page) => page.url.origin === initialUrl.origin)
+    .filter((page) => page.url.pathname !== '/' && !/sitemap/i.test(page.url.pathname));
+  const productLikePages = pages.filter((page) => /product|products|shop|vara|artikel|item|p\//i.test(page.url.pathname));
+  const productPriorityPages = pages.filter((page) => page.priority !== null && page.priority <= 0.8);
+  const preferredPages = productPriorityPages.length > 0 ? productPriorityPages : productLikePages.length > 0 ? productLikePages : pages;
+  return preferredPages.slice(0, MAX_PAGES - 1).map((page) => page.url);
 }
 
 export function isAllowedByRobots(robots: string, pathname: string): boolean {
@@ -344,10 +370,8 @@ export async function scanShop(rawUrl: string): Promise<ScanSignals> {
   try {
     if (!sitemapUrl) throw new OpportunityError('SCAN_BLOCKED', 'No sitemap scan is permitted.');
     const sitemap = await fetchPinnedText(sitemapUrl, MAX_SITEMAP_BYTES, deadline);
-    const productUrls = parseSitemapLocations(sitemap.body)
-      .map((value) => new URL(value, initial.url))
-      .filter((url) => url.origin === initial.url.origin && /product|products|shop/i.test(url.pathname));
-    for (const pageUrl of productUrls.slice(0, MAX_PAGES - pagesScanned)) {
+    const sitemapPages = selectSitemapPages(parseSitemapLocations(sitemap.body), initial.url);
+    for (const pageUrl of sitemapPages.slice(0, MAX_PAGES - pagesScanned)) {
       if (robotsText && !isAllowedByRobots(robotsText, pageUrl.pathname)) continue;
       try {
         const page = await fetchPinnedText(pageUrl, MAX_PAGE_BYTES, deadline);
