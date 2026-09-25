@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, CircleAlert, Copy, Globe2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getOpportunityScanResult, loadMoreOpportunityProducts, requestSupplierConnection, scanOpportunityShop } from './api';
+import { getOpportunityScanResult, loadMoreOpportunityProducts, scanOpportunityShop } from './api';
 import type { Opportunity, OpportunityScanResponse } from './types';
 import { useDocumentMeta } from './useDocumentMeta';
 
-type FinderState = 'initial' | 'scanning' | 'results' | 'error' | 'submitting' | 'success';
+type FinderState = 'initial' | 'scanning' | 'results' | 'error';
 
-type Contact = { name: string; email: string };
-
-const initialContact: Contact = { name: '', email: '' };
+const ENQUIRY_EMAIL = 'info@eanrunner.com';
 const COUNTRIES = [
   { code: 'se', label: 'Sweden' },
   { code: 'dk', label: 'Denmark' },
@@ -98,7 +96,6 @@ export default function OpportunityFinderPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedEans, setSelectedEans] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState('');
-  const [contact, setContact] = useState<Contact>(initialContact);
   const [linkCopied, setLinkCopied] = useState(false);
 
   const visibleOpportunities = useMemo(
@@ -219,22 +216,24 @@ export default function OpportunityFinderPage() {
     }
   };
 
-  const submitConnection = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!scan || selectedEans.size === 0) return;
-    setState('submitting');
-    setError('');
-    try {
-      await requestSupplierConnection({
-        scanId: scan.scanId,
-        selectedEans: [...selectedEans],
-        contact,
-      });
-      setState('success');
-    } catch (requestError) {
-      setState('results');
-      setError(requestError instanceof Error ? requestError.message : 'We could not send your enquiry. Please try again.');
-    }
+  const openEmailClient = () => {
+    if (!scan || selectedProducts.length === 0) return;
+    const eans = selectedProducts.map((product) => `- ${product.ean}`).join('\n');
+    const body = [
+      'Hi,',
+      '',
+      'I am interested in these products:',
+      eans,
+      '',
+      'Please introduce me to the supplier of these products.',
+      '',
+      `My webshop: ${scan.shop.url}`,
+    ].join('\n');
+    const query = new URLSearchParams({
+      subject: 'Interested in EANrunner products',
+      body,
+    });
+    window.location.href = `mailto:${ENQUIRY_EMAIL}?${query.toString()}`;
   };
 
   const resultCategories = scan ? [...new Set(scan.opportunities.map((item) => item.category).filter(Boolean))] : [];
@@ -309,7 +308,7 @@ export default function OpportunityFinderPage() {
           </form>
         </section>
 
-        {scan && state !== 'success' && (
+        {scan && (
           <section className="mt-12" aria-labelledby="opportunity-results">
             <div className="rounded-2xl border border-[hsl(220_16%_87%)] bg-[hsl(220_26%_98%)] p-5 sm:p-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -423,15 +422,13 @@ export default function OpportunityFinderPage() {
                             </li>
                           ))}
                         </ul>
-                        <form onSubmit={submitConnection} className="mt-5 border-t border-[hsl(145_38%_73%)] pt-5">
-                          <p className="text-sm font-semibold">Get access to EANrunner</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[hsl(220_14%_42%)]">Share your details and EANrunner will follow up about onboarding to app.eanrunner.com.</p>
-                          <label className="mt-4 block text-sm font-semibold">Name<input required autoComplete="name" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                          <label className="mt-3 block text-sm font-semibold">Business email<input required type="email" autoComplete="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-lg border border-[hsl(220_16%_82%)] bg-white px-3 font-normal outline-none focus:border-[hsl(145_55%_38%)] focus:ring-2 focus:ring-[hsl(145_55%_38%/0.18)]" /></label>
-                          <button type="submit" disabled={state === 'submitting'} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[hsl(145_55%_34%)] px-4 text-sm font-bold text-white hover:bg-[hsl(145_55%_28%)] disabled:cursor-wait disabled:opacity-70">
-                            {state === 'submitting' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}{state === 'submitting' ? 'Sending enquiry' : 'Request onboarding'}
+                        <div className="mt-5 border-t border-[hsl(145_38%_73%)] pt-5">
+                          <p className="text-sm font-semibold">Ask for supplier introductions</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[hsl(220_14%_42%)]">This opens your email client with the selected EANs already added.</p>
+                          <button type="button" onClick={openEmailClient} className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[hsl(145_55%_34%)] px-4 text-sm font-bold text-white hover:bg-[hsl(145_55%_28%)]">
+                            Email selected products
                           </button>
-                        </form>
+                        </div>
                       </>
                     )}
                   </aside>
@@ -442,13 +439,7 @@ export default function OpportunityFinderPage() {
           </section>
         )}
 
-        {state === 'success' && (
-          <section className="mx-auto mt-12 max-w-2xl rounded-2xl border border-[hsl(145_38%_72%)] bg-[hsl(145_44%_96%)] p-8 text-center" aria-live="polite">
-            <Check className="mx-auto h-10 w-10 rounded-full bg-[hsl(145_55%_34%)] p-2 text-white" aria-hidden="true" />
-            <h2 className="mt-4 text-2xl font-bold">Enquiry received</h2>
-            <p className="mt-3 text-[hsl(220_14%_38%)]">Thank you. EANrunner will review your selected products and contact you about onboarding to app.eanrunner.com.</p>
-          </section>
-        )}
+
 
         <section className="mt-14 grid gap-4 sm:grid-cols-3">
           {[

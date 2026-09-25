@@ -53,7 +53,6 @@ The public catalog shows, per market (DK/SE/FI):
 - `POST /api/public/opportunity-scan` (Vercel Function in `web/api`)
 - `POST /api/public/opportunity-scan-result` (Vercel Function in `web/api`)
 - `POST /api/public/opportunity-scan-page` (Vercel Function in `web/api`)
-- `POST /api/public/supplier-connection` (retailer onboarding email, Vercel Function in `web/api`)
 
 ## Opportunity Finder
 
@@ -63,18 +62,17 @@ The public catalog shows, per market (DK/SE/FI):
 
 1. For the normal catalogue API, configure `api/.env` as described above and run `npm --prefix api run dev`.
 2. For Opportunity Finder, set `EANCAT_PUBLIC_API_BASE` in the Vercel project only if the default public API base needs to change.
-3. Set `RESEND_API_KEY`, `RETAILER_SIGNUP_EMAIL_FROM`, and `RETAILER_SIGNUP_EMAIL_TO` in Vercel to send retailer enquiries to the EANrunner onboarding inbox. Do not expose these values as `VITE_` variables.
 4. Run `npm --prefix web run dev`, or use Vercel local development for the `web/api` functions, then visit `/opportunity`.
 
 ### Scan and privacy boundaries
 
 Opportunity Finder scans run as Vercel Functions under `web/api` so the finder can deploy with the frontend; no Azure deployment is required for these endpoints. The functions use the existing public EANcat API as a read-only source for product categories and products. The scanner accepts public `http`/`https` URLs, resolves and pins public DNS addresses for every request and redirect, and rejects local, private, reserved, and cloud-metadata address ranges. It uses a small budget: up to eight public pages, three redirects, 5 MB for the initial page, 512 KB per additional HTML/sitemap response, seven seconds per request, and twenty seconds in total. It observes accessible public pages only; it does not bypass robots restrictions, authentication, CAPTCHAs, or bot protection.
 
-The finder extracts public structured data, EAN/GTIN values, category/brand labels, and locale/currency hints. The selected country controls whether DK, SE, or FI market data is used. It prioritizes repeated product-category signals and retailer navigation categories, and maps the strongest matching category against public catalogue categories first. It excludes detected EANs, then adds one lower-priority category at a time only while fewer than twenty opportunities have been found. The initial response shows up to twenty in-stock products. Results rotate across brands and use at most two products per brand when enough distinct brands are available. Retailers can shortlist products in a shareable result link, then submit only their name and email; EANrunner receives an onboarding email containing the webshop domain and selected products. It requires in-stock products and deterministically prefers margin grades A/B (using grade C only when few stronger matches exist). The displayed expected margin is an estimate derived from the public market price and margin grade, not a supplier quote. Responses contain only public-safe catalogue fields; they never expose supplier identities, costs, exact margins, or private matching data.
+The finder extracts public structured data, EAN/GTIN values, category/brand labels, and locale/currency hints. The selected country controls whether DK, SE, or FI market data is used. It prioritizes repeated product-category signals and retailer navigation categories, and maps the strongest matching category against public catalogue categories first. It excludes detected EANs, then adds one lower-priority category at a time only while fewer than twenty opportunities have been found. The initial response shows up to twenty in-stock products. Results rotate across brands and use at most two products per brand when enough distinct brands are available. Retailers can shortlist products in a shareable result link, then open their own email client with a prefilled supplier-introduction request containing the selected EANs and webshop domain. It requires in-stock products and deterministically prefers margin grades A/B (using grade C only when few stronger matches exist). The displayed expected margin is an estimate derived from the public market price and margin grade, not a supplier quote. Responses contain only public-safe catalogue fields; they never expose supplier identities, costs, exact margins, or private matching data.
 
-### Retailer onboarding email
+### Supplier introduction email
 
-After selecting products, a retailer submits only their name and business email. The Vercel Function sends an operator email through Resend to `RETAILER_SIGNUP_EMAIL_TO`, with the submitted name, reply-to email, scanned webshop domain, market, and selected products. EANrunner then follows up to onboard the retailer to `app.eanrunner.com`. A missing or rejected email configuration returns a truthful error to the retailer; the browser never receives the Resend credentials.
+After selecting products, the retailer can open their own email client with a prefilled message to EANrunner. The message lists the selected EANs and webshop domain, and asks EANrunner to introduce the retailer to the relevant suppliers. No email-provider configuration or server-side email delivery is required.
 
 Known MVP limits: scans are intentionally partial, a result is not a full assortment audit, market/category signals are estimates, and onboarding requires configured Resend credentials.
 
